@@ -82,9 +82,10 @@ const ICONS = {
   today: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"/>',
   customers: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
   reports: '<path d="M18 20V10M12 20V4M6 20v-6"/>',
+  grow: '<path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/>',
   settings: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
 };
-const TABS = [['today', 'Today'], ['customers', 'Customers'], ['reports', 'Reports'], ['settings', 'Settings']];
+const TABS = [['today', 'Today'], ['customers', 'Customers'], ['reports', 'Reports'], ['grow', 'Grow'], ['settings', 'Settings']];
 
 function svgIcon(name) {
   const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -109,6 +110,7 @@ const views = {
   today: { load: () => loadDay(), draw: () => renderToday() },
   customers: { load: loadCustomers, draw: () => renderCustomers() },
   reports: { load: loadReport, draw: () => renderReport() },
+  grow: { load: loadGrow, draw: () => renderGrow() },
   settings: { load: loadSettings, draw: () => renderSettings() },
 };
 const current = () => ((location.hash.match(/^#\/(\w+)/) || [])[1] in views ? location.hash.slice(2) : 'today');
@@ -484,6 +486,7 @@ async function boot() {
   buildShell();
   if (!location.hash) history.replaceState(null, '', '#/today'); // no hashchange event, so only one render
   await render();
+  updateBadge();
 }
 boot().catch((e) => e.message !== 'login' && $('#root').replaceChildren(h('div', { class: 'card empty' }, h('p', {}, 'Could not reach the server.'), h('button', { class: 'btn', onclick: () => location.reload() }, 'Try again'))));
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});

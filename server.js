@@ -8,9 +8,11 @@ process.env.TZ ||= 'Asia/Kolkata'; // "today" must match the provider's wall clo
 
 import { Store, newTenant, newLinkCode } from './lib/store.js';
 import { Limiter } from './lib/limiter.js';
-import { Telegram, leaveText } from './lib/telegram.js';
+import { Telegram, leaveText, esc } from './lib/telegram.js';
 import { phoneKey, validPhone, hashPassword, verifyPassword, createSession, lookupSession, destroySession, SESSION_MS } from './lib/auth.js';
 import * as L from './lib/logic.js';
+import * as M from './lib/market.js';
+import { Geocoder, snap, validCoords } from './lib/geo.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(ROOT, 'public');
@@ -20,6 +22,12 @@ const COOKIE = 'tiffin_session';
 const store = new Store(process.env.DATA_DIR || path.join(ROOT, 'data'));
 const { db } = store;
 const tg = new Telegram({ token: process.env.TELEGRAM_BOT_TOKEN, store });
+const geo = new Geocoder({
+  store,
+  country: (process.env.COUNTRY || 'in').toLowerCase(), // ISO country code used to bias address / pincode lookups
+  enabled: process.env.GEOCODER !== 'off',
+  userAgent: `tiffin-manager/1.0 ${process.env.GEOCODER_CONTACT || ''}`.trim(), // Nominatim asks for a contact
+});
 
 // ---------- helpers ----------
 class HttpError extends Error {
@@ -37,6 +45,8 @@ const int = (v, min, max, dflt) => {
 const newId = () => crypto.randomBytes(6).toString('base64url');
 const loginLimiter = new Limiter(8, 10 * 60 * 1000);
 const signupLimiter = new Limiter(10, 60 * 60 * 1000);
+const searchLimiter = new Limiter(40, 60 * 1000);
+const enquiryLimiter = new Limiter(5, 60 * 60 * 1000);
 
 const cookies = (req) =>
   Object.fromEntries(
@@ -321,6 +331,239 @@ route('GET', '/api/report', 'provider', ({ t, query }) => {
   return withToday(L.monthReport(t, month));
 });
 
+
+// ---------- marketplace ----------
+const TAGS = ['veg', 'non-veg', 'jain', 'vegan', 'home-style', 'healthy'];
+const MEALS = ['breakfast', 'lunch', 'dinner'];
+const PIN_RE = /^\d{4,8}$/;
+const findListing = (lid) => {
+  for (const [tid, t] of Object.entries(db.tenants)) if (t.listing.id === lid && M.isListed(t)) return { tid, t };
+  throw bad('This listing is not available', 404);
+};
+const seenClicks = new Map(); // "ip|lid|type" -> time, so one person cannot inflate counts
+
+route('GET', '/api/market/search', null, async ({ query, ip }) => {
+  if (searchLimiter.blocked(ip)) throw bad('Too many searches. Please wait a minute.', 429);
+  searchLimiter.fail(ip);
+  const q = str(query.q, 200);
+  let origin = null;
+  let label = '';
+  let pin = '';
+  if (query.lat !== undefined && validCoords(Number(query.lat), Number(query.lng))) {
+    origin = { lat: Number(query.lat), lng: Number(query.lng) };
+    label = 'your location';
+  } else if (q) {
+    const compact = q.replace(/\s/g, '');
+    pin = PIN_RE.test(compact) ? compact : (q.match(/\b\d{6}\b/) || [''])[0];
+    const g = await geo.lookup(PIN_RE.test(compact) ? compact : q);
+    if (g) {
+      origin = { lat: g.lat, lng: g.lng };
+      label = g.label;
+    }
+  }
+  if (!origin && !pin) throw bad(q ? 'We could not find that place. Try your pincode.' : 'Enter your pincode or address, or use your location.');
+  const found = M.search(db, { origin, pin });
+  for (const f of found) {
+    M.track(db, f.tid, 'imp');
+    if (f.sponsored) M.track(db, f.tid, 'spImp');
+  }
+  if (found.length) store.save();
+  return { mode: origin ? 'distance' : 'pincode', label, pin, results: found.map(M.card) };
+});
+
+route('POST', '/api/market/:lid/click', null, ({ params, body, ip }) => {
+  const { tid } = findListing(params.lid);
+  const type = ['call', 'whatsapp', 'view'].includes(body.type) ? body.type : null;
+  if (!type) throw bad('Invalid click');
+  const key = `${ip}|${params.lid}|${type}`;
+  if (Date.now() - (seenClicks.get(key) || 0) > 3600e3) {
+    if (seenClicks.size > 10000) seenClicks.clear();
+    seenClicks.set(key, Date.now());
+    M.track(db, tid, type);
+    store.save();
+  }
+  return { ok: true };
+});
+
+route('POST', '/api/market/:lid/enquire', null, ({ params, body, ip }) => {
+  const { tid, t } = findListing(params.lid);
+  if (enquiryLimiter.blocked(ip)) throw bad('Too many requests. Please try again later.', 429);
+  const name = str(body.name, 60);
+  const phone = str(body.phone, 20).replace(/[^\d+]/g, '');
+  if (!name) throw bad('Please enter your name');
+  if (!validPhone(phone)) throw bad('Please enter a valid phone number');
+  enquiryLimiter.fail(ip);
+  if (t.enquiries.some((e) => e.status === 'new' && phoneKey(e.phone) === phoneKey(phone))) return { ok: true }; // already waiting; don't spam
+  t.enquiries.unshift({ id: newId(), name, phone, address: str(body.address, 200), type: body.type === 'deluxe' ? 'deluxe' : 'normal', note: str(body.note, 200), at: Date.now(), status: 'new' });
+  if (t.enquiries.length > 200) t.enquiries = t.enquiries.filter((e, i) => i < 200 || e.status === 'new');
+  M.track(db, tid, 'enquiry');
+  store.save();
+  tg.notify(t, `📩 <b>New enquiry</b> from the marketplace\n${esc(name)} · ${esc(phone)}${body.address ? `\n📍 ${esc(str(body.address, 200))}` : ''}\nOpen the app → Grow to add them.`);
+  return { ok: true };
+});
+
+// ----- provider: listing, enquiries, ads -----
+const listingOut = (t) => ({ ...t.listing, listed: M.isListed(t), tags: t.listing.tags, options: { tags: TAGS, meals: MEALS } });
+
+route('GET', '/api/listing', 'provider', ({ t, user }) => ({
+  ...listingOut(t),
+  stats: M.statsFor(db, user.id),
+  newEnquiries: t.enquiries.filter((e) => e.status === 'new').length,
+  hasPhone: !!t.settings.businessPhone,
+}));
+
+route('PUT', '/api/listing', 'provider', ({ t, body: b }) => {
+  const l = t.listing;
+  const pin = str(b.pincode, 8);
+  if (pin && !PIN_RE.test(pin)) throw bad('Pincode should be 4 to 8 digits');
+  const serves = [...new Set((Array.isArray(b.servesPincodes) ? b.servesPincodes : []).map((x) => str(String(x), 8)).filter((x) => PIN_RE.test(x)))].slice(0, 20);
+  const next = {
+    tagline: str(b.tagline, 80),
+    about: str(b.about, 400),
+    tags: (Array.isArray(b.tags) ? b.tags : []).filter((x) => TAGS.includes(x)),
+    meals: (Array.isArray(b.meals) ? b.meals : []).filter((x) => MEALS.includes(x)),
+    area: str(b.area, 60),
+    city: str(b.city, 60),
+    pincode: pin,
+    servesPincodes: serves,
+    radiusKm: int(b.radiusKm, 1, 25, l.radiusKm),
+    lat: l.lat,
+    lng: l.lng,
+  };
+  if (b.clearLocation) next.lat = next.lng = null;
+  else if (b.lat != null && validCoords(Number(b.lat), Number(b.lng))) {
+    next.lat = snap(Number(b.lat));
+    next.lng = snap(Number(b.lng));
+  }
+  const enabled = !!b.enabled;
+  if (enabled && !next.area) throw bad('Please add your area or locality so customers know where you are');
+  if (enabled && next.lat == null && !next.pincode) throw bad('Add your pincode or set your location to be listed');
+  Object.assign(l, next, { enabled });
+  store.save();
+  return listingOut(t);
+});
+
+route('POST', '/api/listing/locate', 'provider', async ({ body }) => {
+  const q = str(body.q, 200);
+  if (!q) throw bad('Type your pincode or address first');
+  const g = await geo.lookup(q);
+  if (!g) throw bad('Could not find that place. You can use your phone’s location instead.');
+  return { lat: snap(g.lat), lng: snap(g.lng), label: g.label };
+});
+
+route('GET', '/api/enquiries', 'provider', ({ t }) => ({ enquiries: t.enquiries.filter((e) => e.status === 'new') }));
+
+route('POST', '/api/enquiries/:id/accept', 'provider', ({ t, params }) => {
+  const e = orNotFound(t.enquiries.find((x) => x.id === params.id && x.status === 'new'), 'Enquiry not found');
+  const c = { id: newId(), token: crypto.randomBytes(12).toString('base64url'), ...cleanCustomer({ name: e.name, phone: e.phone, address: e.address, type: e.type, note: e.note }), leaves: [] };
+  t.customers.push(c);
+  e.status = 'added';
+  store.save();
+  return c;
+});
+
+route('POST', '/api/enquiries/:id/dismiss', 'provider', ({ t, params }) => {
+  orNotFound(t.enquiries.find((x) => x.id === params.id && x.status === 'new'), 'Enquiry not found').status = 'dismissed';
+  store.save();
+  return { ok: true };
+});
+
+route('GET', '/api/ads', 'provider', ({ t, user }) => {
+  const ad = M.activeAd(db, user.id);
+  return {
+    currency: db.platform.currency,
+    payInstructions: db.platform.payInstructions,
+    plans: db.platform.plans,
+    orders: db.platform.orders.filter((o) => o.tid === user.id).sort((a, b) => b.createdAt - a.createdAt).map(M.adView),
+    active: ad ? M.adView(ad) : null,
+    stats: M.statsFor(db, user.id),
+    canAdvertise: t.listing.enabled && !t.listing.suspended && t.listing.lat != null,
+  };
+});
+
+route('POST', '/api/ads/order', 'provider', ({ t, user, body }) => {
+  const plan = orNotFound(db.platform.plans.find((p) => p.id === body.planId), 'That plan is not available');
+  if (!(t.listing.enabled && !t.listing.suspended && t.listing.lat != null)) throw bad('Turn on your marketplace listing and set your location first.');
+  const mine = db.platform.orders.filter((o) => o.tid === user.id && o.status === 'pending');
+  if (mine.length >= 3) throw bad('You already have pending orders. Please finish or cancel them first.');
+  const o = { id: newId(), ref: `AD-${crypto.randomBytes(3).toString('hex').toUpperCase()}`, tid: user.id, planId: plan.id, planName: plan.name, days: plan.days, radiusKm: plan.radiusKm, price: plan.price, status: 'pending', createdAt: Date.now() };
+  db.platform.orders.push(o);
+  store.save();
+  return M.adView(o);
+});
+
+route('POST', '/api/ads/orders/:id/cancel', 'provider', ({ user, params }) => {
+  const o = orNotFound(db.platform.orders.find((x) => x.id === params.id && x.tid === user.id && x.status === 'pending'), 'Order not found');
+  db.platform.orders = db.platform.orders.filter((x) => x !== o);
+  store.save();
+  return { ok: true };
+});
+
+// ----- platform admin (accounts are created with scripts/make-admin.js) -----
+const adminOverview = () => ({
+  currency: db.platform.currency,
+  payInstructions: db.platform.payInstructions,
+  plans: db.platform.plans,
+  orders: db.platform.orders
+    .map((o) => ({ ...M.adView(o), tid: o.tid, provider: db.tenants[o.tid]?.settings.businessName || '(deleted)', phone: db.tenants[o.tid]?.settings.businessPhone || '' }))
+    .sort((a, b) => (a.status === 'pending' ? -1 : 0) - (b.status === 'pending' ? -1 : 0) || b.createdAt - a.createdAt),
+  listings: Object.entries(db.tenants).map(([tid, t]) => ({
+    tid, name: t.settings.businessName, phone: t.settings.businessPhone, enabled: t.listing.enabled, suspended: t.listing.suspended,
+    area: t.listing.area, city: t.listing.city, pincode: t.listing.pincode, located: t.listing.lat != null, customers: t.customers.length,
+    adUntil: M.activeAd(db, tid)?.endsAt || null, stats: M.statsFor(db, tid),
+  })),
+});
+
+route('GET', '/api/admin/overview', 'admin', () => adminOverview());
+
+route('PUT', '/api/admin/platform', 'admin', ({ body }) => {
+  db.platform.payInstructions = str(body.payInstructions, 500);
+  db.platform.currency = str(body.currency, 4) || db.platform.currency;
+  store.save();
+  return adminOverview();
+});
+
+route('POST', '/api/admin/plans', 'admin', ({ body }) => {
+  const name = str(body.name, 40);
+  if (!name) throw bad('Plan name is required');
+  const price = Number(body.price);
+  if (!Number.isFinite(price) || price < 0 || price > 1e7) throw bad('Please enter a valid price');
+  const plan = { id: body.id || newId(), name, days: int(body.days, 1, 365, 30), radiusKm: int(body.radiusKm, 1, 25, 3), price };
+  const i = db.platform.plans.findIndex((p) => p.id === plan.id);
+  if (i >= 0) db.platform.plans[i] = plan;
+  else db.platform.plans.push(plan);
+  store.save();
+  return adminOverview();
+});
+
+route('DELETE', '/api/admin/plans/:id', 'admin', ({ params }) => {
+  db.platform.plans = db.platform.plans.filter((p) => p.id !== params.id);
+  store.save();
+  return adminOverview();
+});
+
+route('POST', '/api/admin/orders/:id/paid', 'admin', ({ params }) => {
+  const o = orNotFound(db.platform.orders.find((x) => x.id === params.id && x.status === 'pending'), 'Pending order not found');
+  M.activateOrder(db, o);
+  store.save();
+  const t = db.tenants[o.tid];
+  if (t) tg.notify(t, `📣 Your marketplace ad <b>${esc(o.planName)}</b> is live until ${new Date(o.endsAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}.`);
+  return adminOverview();
+});
+
+route('POST', '/api/admin/orders/:id/reject', 'admin', ({ params }) => {
+  orNotFound(db.platform.orders.find((x) => x.id === params.id && x.status === 'pending'), 'Pending order not found').status = 'rejected';
+  store.save();
+  return adminOverview();
+});
+
+route('POST', '/api/admin/listings/:tid/suspend', 'admin', ({ params, body }) => {
+  const t = orNotFound(db.tenants[params.tid], 'Provider not found');
+  t.listing.suspended = !!body.suspended;
+  store.save();
+  return adminOverview();
+});
+
 // ----- customer account -----
 route('GET', '/api/my', 'customer', ({ user }) => ({
   name: user.name,
@@ -415,7 +658,7 @@ async function handleApi(req, res, url) {
     }
     const user = session?.user || null;
     if (r.auth && !user) throw bad('Please log in', 401);
-    if ((r.auth === 'provider' || r.auth === 'customer') && user.role !== r.auth) throw bad('This page is not for your account type', 403);
+    if (r.auth !== 'any' && r.auth && user.role !== r.auth) throw bad('This page is not for your account type', 403);
 
     const mutating = req.method !== 'GET';
     // JSON-only writes + SameSite cookie = no cross-site form posts
@@ -438,7 +681,7 @@ async function handleApi(req, res, url) {
 }
 
 // clean URLs -> html files
-const PAGES = { '/': 'index.html', '/login': 'login.html', '/signup': 'login.html', '/app': 'app.html', '/me': 'me.html' };
+const PAGES = { '/find': 'find.html', '/admin': 'admin.html', '/': 'index.html', '/login': 'login.html', '/signup': 'login.html', '/app': 'app.html', '/me': 'me.html' };
 
 function serveStatic(req, res, url) {
   let rel = decodeURIComponent(url.pathname);

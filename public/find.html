@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Find tiffin services near you</title>
+  <meta name="description" content="Find home-style tiffin services near your address or pincode. Compare, call or message them directly.">
+  <meta name="theme-color" content="#e8590c">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/site.css">
+</head>
+<body class="site">
+<header class="site-nav">
+  <div class="wrap">
+    <a class="brand" href="/"><img src="/icon.svg" alt="">Tiffin Manager</a>
+    <div class="nav-cta" id="navcta">
+      <a class="btn ghost sm" href="/login">Log in</a>
+      <a class="btn primary sm" href="/signup">List your kitchen</a>
+    </div>
+  </div>
+</header>
+<main>
+  <section class="finder">
+    <div class="wrap">
+      <span class="eyebrow">Tiffin marketplace</span>
+      <h1>Find a tiffin service near you</h1>
+      <p class="lead">Home kitchens and tiffin services that deliver to your area, nearest first.</p>
+      <form id="form" class="searchbar">
+        <input id="q" type="search" placeholder="Your pincode or address" autocomplete="postal-code" enterkeyhint="search" aria-label="Pincode or address">
+        <button class="btn primary" type="submit">Search</button>
+      </form>
+      <button id="geo" class="btn" type="button">📍 Use my current location</button>
+      <p class="fine">We don’t store where you search from. Typed places are looked up with OpenStreetMap.</p>
+    </div>
+  </section>
+  <section class="wrap results" id="out" aria-live="polite"></section>
+</main>
+<dialog id="sheet"></dialog>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script src="/find.js"></script>
+</body>
+</html>

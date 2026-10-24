@@ -26,13 +26,14 @@ function toast(msg, bad) {
 const q = new URLSearchParams(location.search);
 const state = {
   mode: location.pathname.startsWith('/signup') ? 'signup' : 'login',
-  role: q.get('role') === 'customer' ? 'customer' : 'provider',
+  role: ['customer', 'admin'].includes(q.get('role')) ? q.get('role') : 'provider',
 };
-const home = (role) => (role === 'provider' ? '/app' : '/me');
+const home = (role) => ({ provider: '/app', admin: '/admin' }[role] || '/me');
 
 function draw() {
   const { mode, role } = state;
-  const isUp = mode === 'signup';
+  const isAdmin = role === 'admin';
+  const isUp = mode === 'signup' && !isAdmin;
   const business = h('input', { type: 'text', placeholder: 'e.g. Annapurna Tiffins', maxLength: 60, autocomplete: 'organization' });
   const phone = h('input', { type: 'tel', placeholder: 'Mobile number', inputMode: 'tel', autocomplete: 'tel', required: true });
   const pass = h('input', { type: 'password', placeholder: isUp ? 'Choose a password (6+ characters)' : 'Your password', autocomplete: isUp ? 'new-password' : 'current-password', required: true, minLength: isUp ? 6 : 1 });
@@ -64,11 +65,11 @@ function draw() {
 
   $('#box').replaceChildren(
     h('a', { class: 'brand mobile-brand', href: '/' }, h('img', { src: '/icon.svg', alt: '', width: 36, height: 36 }), 'Tiffin Manager'),
-    h('h1', {}, isUp ? 'Create your account' : 'Welcome back'),
-    h('div', { class: 'seg two', role: 'tablist' },
+    h('h1', {}, isAdmin ? 'Admin sign-in' : isUp ? 'Create your account' : 'Welcome back'),
+    !isAdmin && h('div', { class: 'seg two', role: 'tablist' },
       ['provider', 'customer'].map((r) => h('button', { type: 'button', role: 'tab', class: role === r ? 'on' : '', onclick: () => { state.role = r; draw(); } }, r === 'provider' ? '👨‍🍳 Tiffin provider' : '🍽 Customer'))),
     form,
-    h('p', { class: 'auth-foot' }, isUp ? 'Already have an account? ' : 'New here? ',
+    !isAdmin && h('p', { class: 'auth-foot' }, isUp ? 'Already have an account? ' : 'New here? ',
       h('button', { type: 'button', onclick: () => { state.mode = isUp ? 'login' : 'signup'; history.replaceState(null, '', state.mode === 'signup' ? '/signup' : '/login'); draw(); } }, isUp ? 'Log in' : 'Create an account')),
     h('p', { class: 'auth-foot' }, h('a', { href: '/' }, '← Back to website')));
   (isUp && role === 'provider' ? business : phone).focus({ preventScroll: true });
