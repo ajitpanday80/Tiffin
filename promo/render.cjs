@@ -10,6 +10,7 @@ const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..');
 const [video = 'provider', aspect = 'v'] = process.argv.slice(2);
 const stillsOnly = process.argv.includes('--stills');
+const rangeArg = (process.argv.find((a) => a.startsWith('--range=')) || '').slice(8); // e.g. --range=47,59 renders just those seconds to promo/out/seg-<name>.mp4
 const FPS = 30;
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json' };
 
@@ -39,13 +40,14 @@ const server = http.createServer((req, res) => {
       await page.screenshot({ path: path.join(__dirname, 'out', 'stills', `${name}-${String(t).replace('.', '_')}.png`) });
     }
   } else {
-    const out = path.join(__dirname, 'out', `${name}.mp4`);
+    const [r0, r1] = rangeArg ? rangeArg.split(',').map(Number) : [0, dur];
+    const out = path.join(__dirname, 'out', rangeArg ? `seg-${name}.mp4` : `${name}.mp4`);
     const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
-      '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo', '-shortest', '-c:v', 'libx264', '-preset', 'medium', '-crf', '19', '-pix_fmt', 'yuv420p',
-      '-c:a', 'aac', '-b:a', '64k', '-movflags', '+faststart', out], { stdio: ['pipe', 'inherit', 'inherit'] });
+      ...(rangeArg ? [] : ['-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo', '-shortest']), '-c:v', 'libx264', '-preset', 'medium', '-crf', '19', '-pix_fmt', 'yuv420p',
+      ...(rangeArg ? ['-an'] : ['-c:a', 'aac', '-b:a', '64k']), '-movflags', '+faststart', out], { stdio: ['pipe', 'inherit', 'inherit'] });
     const done = new Promise((r) => ff.on('close', r));
-    const frames = Math.round(dur * FPS);
-    for (let i = 0; i < frames; i++) {
+    const frames = Math.round(r1 * FPS);
+    for (let i = Math.round(r0 * FPS); i < frames; i++) {
       await page.evaluate((x) => window.seek(x), i / FPS);
       const buf = await page.screenshot({ type: 'jpeg', quality: 93 });
       if (!ff.stdin.write(buf)) await new Promise((r) => ff.stdin.once('drain', r));

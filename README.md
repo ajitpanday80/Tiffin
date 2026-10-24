@@ -71,7 +71,8 @@ This copies the app to **`/root/tiffin`**, creates `/root/tiffin/.env` (mode 600
 2. **DNS:** `A` records for `mytiffin.online` and `www` pointing at the server.
 3. **HTTPS (required):** browsers only allow the marketplace's GPS button, service workers and "install to home screen" over HTTPS, and passwords must not travel in plain text. Install [Caddy](https://caddyserver.com/docs/install), copy `deploy/Caddyfile` to `/etc/caddy/Caddyfile`, and `systemctl reload caddy`. Caddy obtains and renews the certificate itself and sets `X-Forwarded-Proto`, which the app needs. (nginx + certbot works too if it sends that header and `Host`.)
 4. **Admin login:** `cd /root/tiffin && node scripts/make-admin.js <phone> '<long password>' && systemctl restart tiffin`, then sign in at `https://mytiffin.online/login?role=admin`.
-5. **Day to day:** `journalctl -u tiffin -f` (logs), `systemctl restart tiffin`, and back up `/root/tiffin/data/db.json` (e.g. a nightly copy off the server).
+5. **Updating later:** `cd /root/tiffin-src && git pull && sudo bash deploy/install.sh` (keeps your data and `.env`).
+6. **Day to day:** `journalctl -u tiffin -f` (logs), `systemctl restart tiffin`, and back up `/root/tiffin/data/db.json` (e.g. a nightly copy off the server).
 
 The service runs as root because the path is under `/root`; it is sandboxed with `NoNewPrivileges`, `ProtectSystem=strict` and a write-access list limited to the data folder. A dedicated unprivileged user (e.g. `/opt/tiffin`) would be safer if you can change the location.
 

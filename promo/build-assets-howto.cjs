@@ -59,6 +59,7 @@ const CUSTOMERS = [
     const mobile = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: 'en-IN', timezoneId: 'Asia/Kolkata' };
     const shot = async (page, name) => { await page.waitForTimeout(450); await page.screenshot({ path: path.join(OUT, `${name}.png`) }); };
     const box = async (page, sel, nth = 0) => { const b = await page.locator(sel).nth(nth).boundingBox(); if (!b) throw new Error(`no box for ${sel}`); return [b.x, b.y, b.width, b.height].map((v) => Math.round(v * 2)); };
+    const prodUrl = (page) => page.evaluate((o) => { const w = document.createTreeWalker(document.querySelector('#sheet'), NodeFilter.SHOW_TEXT); for (let n = w.nextNode(); n; n = w.nextNode()) n.textContent = n.textContent.split(o).join('https://mytiffin.online'); }, new URL(page.url()).origin);
     const blur = (page) => page.evaluate(() => document.activeElement && document.activeElement.blur());
 
     // ----- provider: sign-up page, filled but not submitted
@@ -91,10 +92,12 @@ const CUSTOMERS = [
     const scrollSheetTo = (title) => p.evaluate((t) => { const b = document.querySelector('#sheet .sheet-body'); const c = [...document.querySelectorAll('#sheet h2')].find((x) => x.textContent.includes(t)).closest('.card'); b.scrollTop += c.getBoundingClientRect().top - b.getBoundingClientRect().top - 14; }, title);
     await scrollSheetTo('Leave / holiday');
     await p.fill('#sheet input[type=date] >> nth=2', addDays(today, 3)); await p.fill('#sheet input[type=date] >> nth=3', addDays(today, 5)); await blur(p);
+    await prodUrl(p);
     await shot(p, 'sheet-leave');
     meta.boxes.sheetLeaveCard = await box(p, '#sheet .card:has(h2:has-text("Leave / holiday"))'); meta.boxes.sheetAddLeave = await box(p, '#sheet button:has-text("Add leave")');
     await p.click('#sheet button:has-text("Add leave")'); await p.waitForTimeout(3300);
     await scrollSheetTo('own leave link');
+    await prodUrl(p);
     await shot(p, 'sheet-link');
     meta.boxes.sheetLinkCard = await box(p, '#sheet .card:has(h2:has-text("own leave link"))'); meta.boxes.sheetWhatsapp = await box(p, '#sheet a:has-text("WhatsApp")');
     await p.click('#sheet [aria-label=Close]');
