@@ -1,0 +1,10 @@
+# /etc/caddy/Caddyfile : Caddy gets and renews the HTTPS certificate by itself.
+# DNS A records for mytiffin.online and www.mytiffin.online must already point at this server.
+www.mytiffin.online {
+	redir https://mytiffin.online{uri} permanent
+}
+
+mytiffin.online {
+	encode gzip
+	reverse_proxy 127.0.0.1:3000
+}

@@ -22,6 +22,7 @@ npm test             # API tests
 | Variable | Purpose |
 | --- | --- |
 | `PORT` | default `3000` |
+| `HOST` | address to listen on (default `0.0.0.0`; use `127.0.0.1` behind a local HTTPS proxy) |
 | `TZ` | **Your timezone**, e.g. `Asia/Kolkata` (the default). "Today" and the Telegram summary times follow it. |
 | `DATA_DIR` | where `db.json` lives (default `./data`). Put this on a **persistent disk**. |
 | `TELEGRAM_BOT_TOKEN` | optional, enables Telegram alerts |
@@ -55,19 +56,26 @@ One bot serves all providers; the code ties a chat to one provider.
 
 **Privacy.** Providers' public location is rounded to about 1 km before it is stored, and customers only see distance in 0.5 km steps, so repeated searches cannot pinpoint a home kitchen. Customer searches (coordinates) are not stored. The text a customer types is sent to OpenStreetMap's geocoder. **The public Nominatim server has a usage policy (max 1 request/s, no heavy use); for real traffic, use a paid or self-hosted geocoder** (swap it in `lib/geo.js`).
 
-## Your domain: mytiffin.online
+## Install on your server (`/root/tiffin`) with `mytiffin.online`
 
-Run with:
+On the server (Linux with systemd, Node 20+ installed), as root, from a checkout of this repo:
 
 ```bash
-PUBLIC_URL=https://mytiffin.online FORCE_HTTPS=1 TZ=Asia/Kolkata DATA_DIR=/var/lib/tiffin npm start
+git clone -b claude/happy-gauss-j00emo https://github.com/ajitpanday80/Tiffin.git /root/tiffin-src   # or use your merged main branch
+sudo bash /root/tiffin-src/deploy/install.sh
 ```
 
-1. **Use HTTPS, not plain http.** Browsers only allow "Use my current location" (the marketplace's GPS search), service workers and "install to home screen" on HTTPS, and passwords should never cross the internet unencrypted. The app itself speaks plain HTTP on its port; put a reverse proxy in front that handles the certificate (Caddy gets a free Let's Encrypt certificate automatically with just `mytiffin.online { reverse_proxy localhost:3000 }`; nginx + certbot also works), or use a host that provides HTTPS for you.
-2. **DNS:** point an `A` record for `mytiffin.online` (and optionally `www`) at your server's IP. Redirecting `www` to the bare domain is done in the proxy.
-3. The proxy must send `X-Forwarded-Proto` (Caddy does by default; in nginx add `proxy_set_header X-Forwarded-Proto $scheme;` and `Host`). That makes login cookies `Secure` and enables the redirect.
-4. Set `GEOCODER_CONTACT=you@your-email` so OpenStreetMap's geocoder can contact you if needed.
-5. I could not test against your real server or domain from here. After deploying, check: `https://mytiffin.online`, `/sitemap.xml` (URLs should start with https), sign-up, and the marketplace GPS button.
+This copies the app to **`/root/tiffin`**, creates `/root/tiffin/.env` (mode 600) from `deploy/env.example`, and starts it as the `tiffin` systemd service (restarts automatically, starts on boot). Re-running the script deploys an update; it never overwrites `/root/tiffin/data` or `.env`. Data lives in `/root/tiffin/data/db.json`.
+
+1. **Edit `/root/tiffin/.env`**: set `GEOCODER_CONTACT` to your email, and `TELEGRAM_BOT_TOKEN` if you want Telegram. Then `systemctl restart tiffin`. The defaults already set `PUBLIC_URL=https://mytiffin.online`, `FORCE_HTTPS=1`, `TZ=Asia/Kolkata` and `HOST=127.0.0.1`, which keeps the app reachable only through the HTTPS proxy.
+2. **DNS:** `A` records for `mytiffin.online` and `www` pointing at the server.
+3. **HTTPS (required):** browsers only allow the marketplace's GPS button, service workers and "install to home screen" over HTTPS, and passwords must not travel in plain text. Install [Caddy](https://caddyserver.com/docs/install), copy `deploy/Caddyfile` to `/etc/caddy/Caddyfile`, and `systemctl reload caddy`. Caddy obtains and renews the certificate itself and sets `X-Forwarded-Proto`, which the app needs. (nginx + certbot works too if it sends that header and `Host`.)
+4. **Admin login:** `cd /root/tiffin && node scripts/make-admin.js <phone> '<long password>' && systemctl restart tiffin`, then sign in at `https://mytiffin.online/login?role=admin`.
+5. **Day to day:** `journalctl -u tiffin -f` (logs), `systemctl restart tiffin`, and back up `/root/tiffin/data/db.json` (e.g. a nightly copy off the server).
+
+The service runs as root because the path is under `/root`; it is sandboxed with `NoNewPrivileges`, `ProtectSystem=strict` and a write-access list limited to the data folder. A dedicated unprivileged user (e.g. `/opt/tiffin`) would be safer if you can change the location.
+
+I could not test the systemd/Caddy parts or your real domain from this sandbox; I tested the install script's copy/permission/update behaviour, and that the installed copy serves, redirects http to https and listens only on localhost. After deploying, check `https://mytiffin.online`, `/sitemap.xml` (https URLs), sign-up, and the marketplace GPS button.
 
 ## Deploying
 

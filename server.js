@@ -18,6 +18,7 @@ import { Geocoder, snap, validCoords } from './lib/geo.js';
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(ROOT, 'public');
 const PORT = Number(process.env.PORT) || 3000;
+const HOST = process.env.HOST || '0.0.0.0'; // use 127.0.0.1 when a reverse proxy on the same machine terminates HTTPS
 const COOKIE = 'tiffin_session';
 
 const store = new Store(process.env.DATA_DIR || path.join(ROOT, 'data'));
@@ -736,7 +737,7 @@ const server = http.createServer((req, res) => {
   }
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, HOST, () => {
   console.log(`Tiffin app running on http://localhost:${PORT}  (timezone: ${process.env.TZ})`);
   if (!tg.configured) console.log('Telegram alerts are off (set TELEGRAM_BOT_TOKEN to enable).');
   tg.start();

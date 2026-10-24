@@ -1,0 +1,19 @@
+[Unit]
+Description=Tiffin Manager
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=__DIR__
+EnvironmentFile=__DIR__/.env
+ExecStart=__NODE__ server.js
+Restart=always
+RestartSec=3
+# the app only needs to write its data folder
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=__DIR__/data
+
+[Install]
+WantedBy=multi-user.target
