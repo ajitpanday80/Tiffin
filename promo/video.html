@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tiffin Manager promo</title>
+<style>
+  :root { --brand: #e8590c; --brand2: #f59f00; --ink: #2a2016; --muted: #7c6b58; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { background: #fff7ea; overflow: hidden; }
+  body { font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+  #canvas { position: relative; overflow: hidden; background: linear-gradient(160deg, #fff6e8, #ffe6c7 55%, #ffd9ab); }
+  .blob { position: absolute; border-radius: 50%; filter: blur(80px); opacity: .55; }
+  #b1 { width: 700px; height: 700px; background: #ffc078; }
+  #b2 { width: 600px; height: 600px; background: #ffe066; }
+  #orange { position: absolute; inset: 0; background: linear-gradient(145deg, #f76707, #f59f00); opacity: 0; }
+  #orange::after { content: "🍱"; position: absolute; right: -120px; bottom: -160px; font-size: 900px; opacity: .13; transform: rotate(-12deg); }
+  #brand { position: absolute; display: flex; align-items: center; gap: 16px; font-weight: 800; letter-spacing: -.02em; }
+  #brand img { border-radius: 14px; }
+
+  #cap { position: absolute; }
+  #cap h1 { font-weight: 900; letter-spacing: -.035em; line-height: 1.05; }
+  #cap h1 em, .gradtxt { font-style: normal; background: linear-gradient(120deg, var(--brand), var(--brand2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  #cap .step { display: none; width: max-content; padding: 8px 24px; border-radius: 99px; background: linear-gradient(120deg, var(--brand), var(--brand2)); color: #fff; font-weight: 800; letter-spacing: .1em; margin-bottom: 16px; }
+  #prog { position: absolute; left: 0; top: 0; height: 10px; width: 0; background: linear-gradient(90deg, var(--brand), var(--brand2)); z-index: 5; opacity: 0; }
+  #cap p { color: var(--muted); font-weight: 600; margin-top: 18px; line-height: 1.3; }
+
+  #phone { position: absolute; background: #1f1810; box-shadow: 0 50px 100px rgba(120, 60, 0, .35), inset 0 0 0 3px #3a2f22; }
+  #screen { position: relative; overflow: hidden; background: #fff7ea; }
+  .shot { position: absolute; left: 0; top: 0; width: 780px; height: 1688px; transform-origin: 0 0; opacity: 0; }
+  .shot img { position: absolute; inset: 0; width: 780px; height: 1688px; }
+  .touch { position: absolute; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; background: rgba(40, 25, 10, .28); opacity: 0; }
+  .ripple { position: absolute; width: 140px; height: 140px; margin: -70px 0 0 -70px; border-radius: 50%; border: 10px solid rgba(255, 255, 255, .95); box-shadow: 0 0 0 6px rgba(232, 89, 12, .55); opacity: 0; }
+  .ring { position: absolute; border-radius: 34px; border: 8px solid var(--brand); box-shadow: 0 0 0 10px rgba(245, 159, 0, .28); opacity: 0; }
+  .toast { position: absolute; left: 50%; bottom: 210px; transform: translateX(-50%); padding: 26px 40px; border-radius: 30px; background: #2a2016; color: #fff; font: 700 34px/1.3 Inter, sans-serif; text-align: center; width: 640px; opacity: 0; }
+
+  .float { position: absolute; opacity: 0; background: #fff; border-radius: 32px; box-shadow: 0 30px 70px rgba(80, 40, 0, .28); padding: 26px 32px; }
+  .tg { border-left: 12px solid #2aabee; }
+  .tg .hd { font-weight: 800; color: #1b8bc9; margin-bottom: 10px; }
+  .tg .ln { line-height: 1.4; font-weight: 500; }
+  .tg .ln b { font-weight: 800; }
+  .chip { display: grid; gap: 4px; justify-items: start; }
+  .chip small { font-weight: 700; color: var(--muted); }
+  .chip .nums { display: flex; align-items: center; gap: 22px; font-weight: 900; letter-spacing: -.03em; }
+  .chip .old { color: #b8a58f; text-decoration: line-through; }
+  .chip .arrow { color: var(--brand); }
+  .chip .new { color: var(--brand); }
+
+  #hook, #cta { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; text-align: center; color: #fff; opacity: 0; padding: 0 90px; }
+  #hook .em, #cta .em { line-height: 1; }
+  #hook h1, #cta h1 { font-weight: 900; letter-spacing: -.04em; line-height: 1.04; }
+  #hook p, #cta p { font-weight: 600; opacity: .95; margin-top: 26px; }
+  #cta .url { margin-top: 44px; padding: 22px 52px; border-radius: 99px; background: #fff; color: var(--brand); font-weight: 900; letter-spacing: -.01em; box-shadow: 0 24px 60px rgba(0, 0, 0, .2); }
+  #cta img { border-radius: 28%; box-shadow: 0 24px 60px rgba(0, 0, 0, .2); }
+</style>
+</head>
+<body>
+<div id="canvas">
+  <div class="blob" id="b1"></div><div class="blob" id="b2"></div>
+  <div id="brand"><img src="../public/icon.svg" alt=""><span>Tiffin Manager</span></div>
+  <div id="prog"></div>
+  <div id="cap"><div class="step"></div><h1></h1><p></p></div>
+  <div id="phone"><div id="screen"></div></div>
+  <div id="orange"></div>
+  <div id="hook"><div class="em"></div><h1></h1><p></p></div>
+  <div id="cta"><img src="../public/icon.svg" alt=""><h1></h1><p></p><div class="url">mytiffin.online</div></div>
+</div>
+<script>
+'use strict';
+const Q = new URLSearchParams(location.search);
+const VIDEO = Q.get('v') || 'provider';
+const V = (Q.get('a') || 'v') === 'v';
+const HOWTO = VIDEO.endsWith('-howto');
+const W = V ? 1080 : 1920, H = V ? 1920 : 1080;
+const $ = (s) => document.querySelector(s);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const P = (t, a, b) => clamp((t - a) / (b - a));
+const ease = { out: (x) => 1 - (1 - x) ** 3, inout: (x) => (x < .5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2), in: (x) => x * x * x, back: (x) => { const c = 1.7; return 1 + (c + 1) * (x - 1) ** 3 + c * (x - 1) ** 2; } };
+const lerp = (a, b, k) => a + (b - a) * k;
+
+// ---------- layout ----------
+const LAY = V
+  ? { Sw: 700, bez: 14, px: Math.round((W - 728) / 2), py: 415, cap: { x: 80, y: 105, w: 920, fs: 74, sub: 38 }, brand: { x: 60, y: 44, fs: 36, ic: 56 },
+      bubble: { x: 70, y: 1090, w: 800, fs: 37 }, chip: { x: 400, y: 1590, fs: 84 }, hook: { em: 220, fs: 120, sub: 52 }, cta: { ic: 200, fs: 112, sub: 52, url: 64 } }
+  : { Sw: 420, bez: 12, px: 1260, py: 56, cap: { x: 110, y: 170, w: 960, fs: 76, sub: 38 }, brand: { x: 110, y: 56, fs: 34, ic: 52 },
+      bubble: { x: 110, y: 500, w: 880, fs: 32 }, chip: { x: 110, y: 850, fs: 80 }, hook: { em: 200, fs: 128, sub: 52 }, cta: { ic: 190, fs: 118, sub: 52, url: 64 } };
+if (HOWTO && V) { LAY.py = 442; LAY.cap.y = 112; LAY.cap.fs = 66; LAY.cap.sub = 35; }
+if (HOWTO && !V) { LAY.cap.y = 120; LAY.cap.fs = 70; }
+LAY.stepFs = V ? 30 : 26;
+LAY.Sh = Math.round(LAY.Sw * 1688 / 780);
+if (!V) { LAY.Sh = 980; LAY.Sw = Math.round(980 * 780 / 1688); LAY.px = 1180; LAY.py = Math.round((H - (LAY.Sh + 24)) / 2); }
+const K = LAY.Sw / 780; // image px -> screen px
+
+const canvas = $('#canvas');
+canvas.style.width = `${W}px`; canvas.style.height = `${H}px`;
+const phone = $('#phone'), screen = $('#screen');
+Object.assign(phone.style, { left: `${LAY.px}px`, top: `${LAY.py}px`, width: `${LAY.Sw + 2 * LAY.bez}px`, height: `${LAY.Sh + 2 * LAY.bez}px`, borderRadius: `${LAY.Sw * .1}px`, padding: `${LAY.bez}px` });
+Object.assign(screen.style, { width: `${LAY.Sw}px`, height: `${LAY.Sh}px`, borderRadius: `${LAY.Sw * .075}px` });
+Object.assign($('#cap').style, { left: `${LAY.cap.x}px`, top: `${LAY.cap.y}px`, width: `${LAY.cap.w}px` });
+$('#cap .step').style.fontSize = `${LAY.stepFs}px`; $('#cap h1').style.fontSize = `${LAY.cap.fs}px`; $('#cap p').style.fontSize = `${LAY.cap.sub}px`;
+Object.assign($('#brand').style, { left: `${LAY.brand.x}px`, top: `${LAY.brand.y}px`, fontSize: `${LAY.brand.fs}px` });
+$('#brand img').style.width = $('#brand img').style.height = `${LAY.brand.ic}px`;
+Object.assign($('#b1').style, { left: `${W * .55}px`, top: `${-200}px` }); Object.assign($('#b2').style, { left: `${-200}px`, top: `${H * .6}px` });
+$('#hook .em').style.fontSize = `${LAY.hook.em}px`; $('#hook h1').style.fontSize = `${LAY.hook.fs}px`; $('#hook p').style.fontSize = `${LAY.hook.sub}px`;
+$('#cta img').style.width = $('#cta img').style.height = `${LAY.cta.ic}px`; $('#cta h1').style.fontSize = `${LAY.cta.fs}px`; $('#cta p').style.fontSize = `${LAY.cta.sub}px`; $('#cta .url').style.fontSize = `${LAY.cta.url}px`;
+$('#cta img').style.marginBottom = '36px';
+
+// ---------- content ----------
+const fmtD = (s) => new Date(`${s}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+let M = {};
+const B = (n) => M.boxes[n]; // measured boxes [x,y,w,h] in image px
+const center = (b) => [b[0] + b[2] / 2, b[1] + b[3] / 2];
+
+function defs() {
+  const T = M.tomorrow;
+  const bubble = `<div class="hd">✈️ Telegram · Tiffin bot</div>
+    <div class="ln">🏖 <b>Sunita Rao</b> (Deluxe) is on leave</div>
+    <div class="ln">📅 ${fmtD(T.from)} → ${fmtD(T.to)} (${T.leaveDays} days)</div>
+    <div class="ln" style="margin-top:14px">🍱 Tomorrow: <b>${T.after}</b> to prepare (Normal ${T.normal}, Deluxe ${T.deluxe})</div>`;
+  const fx = (shots) => shots;
+
+  if (VIDEO === 'provider-howto') {
+    const n = (i) => `STEP ${i} OF 9`;
+    const mid = (name) => center(B(name));
+    return {
+      dur: 96, progress: true,
+      hook: { a: 0, b: 3.6, em: '🍱', title: 'How to use Tiffin Manager', sub: 'For tiffin providers · 9 simple steps' },
+      phone: [[3.2, 90.6]],
+      caps: [
+        [3.6, 12.6, 'Create your <em>account</em>', 'Service name, phone number and a password. You stay logged in for 30 days.', n(1)],
+        [12.6, 23.0, 'Add your <em>customers</em>', 'Name, phone, address, Normal or Deluxe, and boxes per day.', n(2)],
+        [23.0, 30.5, 'Set <em>prices</em> and closed days', 'Optional. Closed days, like Sunday, are not counted.', n(3)],
+        [30.5, 39.0, 'Every morning, open <em>Today</em>', 'The big number is how many boxes to cook. Use the arrows to see tomorrow.', n(4)],
+        [39.0, 48.0, 'Tick <em>deliveries</em> as you go', 'Tap Delivered. Tapped by mistake? Open the Delivered tab and press Undo.', n(5)],
+        [48.0, 58.5, 'Handle <em>leave</em>', 'Add leave yourself, or send the customer their own link on WhatsApp.', n(6)],
+        [58.5, 67.0, 'Month end: <em>Reports</em>', 'Delivered days, leave days and amount per customer, ready for WhatsApp.', n(7)],
+        [67.0, 77.0, 'Get found: the <em>Grow</em> tab', 'List your kitchen free. Ads are optional and shown only to people near you.', n(8)],
+        [77.0, 90.8, 'Connect <em>Telegram</em> alerts', 'Open the bot, tap Start, and send /start with your code.', n(9)],
+      ],
+      shots: [
+        { src: 'signup-provider', a: 3.4, b: 12.9, cam: [[3.4, 390, 844, 1]], rings: [[5.0, 9.2, B('signupFields')]], tap: [[11.0, ...mid('signupBtn')]] },
+        { src: 'form-top', a: 12.4, b: 17.7, cam: [[12.4, 390, 844, 1]], rings: [[13.6, 15.4, B('formFields')], [15.6, 17.3, B('formAddress')]] },
+        { src: 'form-bottom', a: 17.4, b: 23.3, cam: [[17.4, 390, 844, 1]], rings: [[18.2, 20.4, B('formType')]], tap: [[22.0, ...mid('formAddBtn')]] },
+        { src: 'settings-top', a: 22.8, b: 26.9, cam: [[22.8, 390, 844, 1]], rings: [[23.8, 26.4, B('settingsPrices')]] },
+        { src: 'settings-days', a: 26.6, b: 30.8, cam: [[26.6, 390, 844, 1]], rings: [[27.6, 30.3, B('settingsDays')]] },
+        { src: 'today', a: 30.3, b: 45.0, cam: [[30.3, 390, 844, 1]], rings: [[31.3, 35.0, B('todayHero')], [35.4, 38.4, B('todayProgress')], [40.0, 42.4, B('deliverBtn')]], tap: [[42.6, ...mid('deliverBtn')]] },
+        { src: 'today-after', a: 44.6, b: 48.3, cam: [[44.6, 390, 844, 1]], rings: [[45.4, 47.9, B('todayProgress')]] },
+        { src: 'sheet-leave', a: 47.8, b: 53.6, cam: [[47.8, 390, 844, 1]], rings: [[48.8, 51.0, B('sheetLeaveCard')]], tap: [[52.4, ...mid('sheetAddLeave')]] },
+        { src: 'sheet-link', a: 53.3, b: 58.9, cam: [[53.3, 390, 844, 1]], rings: [[54.2, 56.5, B('sheetLinkCard')], [56.7, 58.5, B('sheetWhatsapp')]] },
+        { src: 'reports', a: 58.3, b: 67.4, cam: [[58.3, 390, 844, 1]], rings: [[59.4, 62.6, B('reportsStats')], [63.0, 66.6, B('reportsFirst')]] },
+        { src: 'grow', a: 66.8, b: 72.6, cam: [[66.8, 390, 844, 1]], rings: [[67.9, 70.4, B('growToggle')]] },
+        { src: 'grow-ads', a: 72.3, b: 77.4, cam: [[72.3, 390, 844, 1]], rings: [[73.2, 75.2, B('growKpis')], [75.4, 77.0, B('growPlan')]] },
+        { src: 'settings-tg', a: 76.8, b: 83.9, cam: [[76.8, 390, 844, 1]], rings: [[78.0, 82.2, B('tgCode')]] },
+        { src: 'tg-chat', a: 83.6, b: 90.9, cam: [[83.6, 390, 844, 1]], rings: [[85.0, 88.0, B('tgConnected')], [88.3, 90.6, B('tgToday')]] },
+      ],
+      floats: [],
+      cta: { a: 91.0, b: 96, title: 'That’s it!<br>You’re ready.', sub: 'Need help? Read the guide at', url: 'mytiffin.online/help' },
+    };
+  }
+  if (VIDEO === 'customer-howto') {
+    const n = (i) => `STEP ${i} OF 5`;
+    const mid = (name) => center(B(name));
+    return {
+      dur: 64, progress: true,
+      hook: { a: 0, b: 3.6, em: '🍽️', title: 'How to use Tiffin Manager', sub: 'For customers · 5 simple steps' },
+      phone: [[3.2, 58.6]],
+      caps: [
+        [3.6, 15.0, 'Get your <em>login</em>', 'Use the phone number your provider saved. Or just open the personal link they send you.', n(1)],
+        [15.0, 29.0, 'Mark your <em>leave</em>', 'Pick the first and last day, then tap Mark my leave. Your provider is told straight away.', n(2)],
+        [29.0, 38.0, 'Plans changed? <em>Cancel it</em>', 'Tap Cancel under Your leaves. If it already started, only the remaining days are cancelled.', n(3)],
+        [38.0, 46.8, 'Find a tiffin <em>near you</em>', 'Type your pincode or use your location. Nearest first.', n(4)],
+        [46.8, 58.4, 'Call, WhatsApp or <em>request to join</em>', 'Your details go only to that provider, and they contact you.', n(5)],
+      ],
+      shots: [
+        { src: 'signup-customer', a: 3.4, b: 15.3, cam: [[3.4, 390, 844, 1]], rings: [[4.4, 6.4, B('csTabs')], [6.6, 9.8, B('csFields')], [10.0, 13.0, B('csNote')]], tap: [[14.0, ...mid('csBtn')]] },
+        { src: 'portal', a: 14.8, b: 23.0, cam: [[14.8, 390, 844, 1]], rings: [[16.0, 19.8, B('portalDates')]], tap: [[21.4, ...mid('portalBtn')]] },
+        { src: 'portal-after', a: 22.7, b: 29.3, cam: [[22.7, 390, 844, 1]], toast: [22.9, 26.4, 'Done! Your tiffin provider has been told ✓'], rings: [[26.0, 28.9, B('portalLeaves')]] },
+        { src: 'portal-cancel', a: 28.8, b: 38.3, cam: [[28.8, 390, 844, 1]], rings: [[30.4, 35.4, B('cancelBtn')]], tap: [[36.0, ...mid('cancelBtn')]], toast: [36.4, 38.2, 'Leave cancelled'] },
+        { src: 'find-start', a: 37.9, b: 42.0, cam: [[37.9, 390, 844, 1]], rings: [[38.8, 41.2, B('findSearch')]], tap: [[41.4, B('findSearch')[0] + B('findSearch')[2] - 110, B('findSearch')[1] + B('findSearch')[3] / 2]] },
+        { src: 'find-results', a: 41.7, b: 47.1, cam: [[41.7, 390, 844, 1]], rings: [[42.8, 45.8, B('findSponsored')]] },
+        { src: 'enquiry', a: 46.8, b: 58.8, cam: [[46.8, 390, 844, 1]], rings: [[47.8, 53.6, B('enqForm')]], tap: [[55.6, ...mid('enqSend')]], toast: [56.0, 58.6, 'Request sent ✓'] },
+      ],
+      floats: [],
+      cta: { a: 59.0, b: 64, title: 'Questions?', sub: 'Read the full guide at', url: 'mytiffin.online/help' },
+    };
+  }
+  if (VIDEO === 'provider') return {
+    dur: 39.8,
+    hook: { a: 0, b: 3.4, em: '🍲😅', title: 'Cooked a full batch for someone <span style="text-decoration:underline wavy rgba(255,255,255,.7)">who wasn’t home?</span>', sub: '' },
+    phone: [[3.0, 34.8]],
+    caps: [
+      [3.6, 9.2, 'Know exactly how many <em>tiffins to cook</em> today', 'Normal and Deluxe counted for you.'],
+      [9.2, 15.2, 'Tap <em>Delivered</em>. See who’s left.', 'One tap per customer. Call or map in one more.'],
+      [15.2, 23.6, 'Customers mark <em>their own leave</em>', 'No more messages lost in chats.'],
+      [23.6, 29.2, 'Month-end billing <em>without arguments</em>', 'Delivered days, leave days and amount, ready for WhatsApp.'],
+      [29.2, 34.6, 'Get found by <em>customers near you</em>', 'Free listing. Optional ads are shown only to people nearby.'],
+    ],
+    shots: [
+      { src: 'today', a: 3.4, b: 12.2, cam: [[3.4, 390, 844, 1.0], [5.0, 390, 760, 1.06], [8.6, 390, 760, 1.06], [9.9, 390, 940, 1.06]], tap: [[11.3, ...center(B('deliverBtn'))]], rings: [[10.0, 11.4, B('deliverBtn')]] },
+      { src: 'today-after', a: 11.95, b: 15.6, cam: [[11.95, 390, 940, 1.06], [13.2, 390, 760, 1.06]], rings: [[13.3, 15.0, B('todayProgress')]] },
+      { src: 'portal', a: 15.3, b: 19.6, cam: [[15.3, 390, 844, 1.0], [16.4, 390, 760, 1.06]], rings: [[16.6, 17.9, B('portalDates')]], tap: [[18.4, ...center(B('portalBtn'))]] },
+      { src: 'portal-after', a: 19.3, b: 24.0, cam: [[19.3, 390, 760, 1.06], [20.8, 390, 760, 1.06]], toast: [19.5, 22.4, 'Done! Your tiffin provider has been told ✓'], rings: [[21.2, 23.0, B('portalLeaves')]] },
+      { src: 'reports', a: 23.6, b: 29.6, cam: [[23.6, 390, 844, 1.0], [25.0, 390, 760, 1.06], [26.8, 390, 760, 1.06], [28.0, 390, 940, 1.06]], rings: [[25.2, 26.7, B('reportsStats')]] },
+      { src: 'find-results', a: 29.3, b: 35.2, cam: [[29.3, 390, 844, 1.0], [30.6, 390, 760, 1.06], [32.6, 390, 760, 1.06], [33.8, 390, 940, 1.06]], rings: [[30.8, 32.6, B('findSponsored')]] },
+    ],
+    floats: [
+      { kind: 'bubble', html: bubble, a: 20.0, b: 24.2 },
+      { kind: 'count', label: 'Boxes to cook tomorrow', from: T.before, to: T.after, a: 21.6, flip: 22.3, b: 24.2 },
+    ],
+    cta: { a: 35.0, b: 39.8, title: 'Free for<br><span class="gradtxt" style="background:none;color:#fff">tiffin providers</span>', sub: 'Set up in minutes. Works on any phone.' },
+  };
+  return {
+    dur: 33.6,
+    hook: { a: 0, b: 3.3, em: '🧳✈️', title: 'Going out of town?', sub: 'Will your tiffin still come?' },
+    phone: [[3.0, 28.9]],
+    caps: [
+      [3.5, 10.0, 'Tell your provider in <em>10 seconds</em>', 'Pick the first and last day. That’s it.'],
+      [10.0, 16.0, 'They’re <em>told instantly</em>', 'No calls. No lost chats. No bill arguments.'],
+      [16.0, 24.0, 'Need a tiffin near you? <em>Find one</em>', 'Type your pincode, or use your location.'],
+      [24.0, 28.7, 'Compare, then <em>call, WhatsApp or join</em>', 'Nearest first. Your details go only to that provider.'],
+    ],
+    shots: [
+      { src: 'portal', a: 3.3, b: 10.3, cam: [[3.3, 390, 844, 1.0], [4.8, 390, 760, 1.06]], rings: [[5.0, 7.2, B('portalDates')]], tap: [[8.4, ...center(B('portalBtn'))]] },
+      { src: 'portal-after', a: 10.0, b: 16.3, cam: [[10.0, 390, 760, 1.06], [11.4, 390, 760, 1.06]], toast: [10.2, 13.6, 'Done! Your tiffin provider has been told ✓'] },
+      { src: 'find-start', a: 16.0, b: 19.8, cam: [[16.0, 390, 844, 1.0], [17.0, 390, 760, 1.06]], rings: [[17.2, 18.8, B('findSearch')]], tap: [[19.0, B('findSearch')[0] + B('findSearch')[2] - 110, B('findSearch')[1] + B('findSearch')[3] / 2]] },
+      { src: 'find-results', a: 19.5, b: 29.2, cam: [[19.5, 390, 844, 1.0], [20.8, 390, 760, 1.06], [22.6, 390, 760, 1.06], [23.8, 390, 940, 1.06], [27.0, 390, 760, 1.06]], rings: [[24.4, 26.8, B('findActions')]], tap: [[27.6, ...center(B('findJoinBtn'))]] },
+    ],
+    floats: [{ kind: 'bubble', html: bubble.replace('Telegram · Tiffin bot', 'Your provider’s Telegram'), a: 11.0, b: 16.2 }],
+    cta: { a: 29.1, b: 33.6, title: 'Free for<br>customers', sub: 'Find a tiffin near you at' },
+  };
+}
+
+// ---------- scene graph ----------
+let D, shotEls = [], floatEls = [], capIdx = -1;
+function build() {
+  D = defs();
+  $('#hook .em').textContent = D.hook.em; $('#hook h1').innerHTML = D.hook.title; $('#hook p').textContent = D.hook.sub;
+  $('#cta h1').innerHTML = D.cta.title; $('#cta p').textContent = D.cta.sub; if (D.cta.url) $('#cta .url').textContent = D.cta.url;
+  for (const s of D.shots) {
+    const el = document.createElement('div'); el.className = 'shot';
+    const img = new Image(); img.src = `assets/${s.src}.png`; el.append(img);
+    s.fx = [];
+    for (const [t, x, y] of s.tap || []) {
+      const touch = Object.assign(document.createElement('div'), { className: 'touch' }), rip = Object.assign(document.createElement('div'), { className: 'ripple' });
+      touch.style.left = rip.style.left = `${x}px`; touch.style.top = rip.style.top = `${y}px`; el.append(touch, rip); s.fx.push({ type: 'tap', t, touch, rip });
+    }
+    for (const [a, b, box] of s.rings || []) {
+      const ring = Object.assign(document.createElement('div'), { className: 'ring' });
+      Object.assign(ring.style, { left: `${box[0] - 14}px`, top: `${box[1] - 12}px`, width: `${box[2] + 28}px`, height: `${box[3] + 24}px` }); el.append(ring); s.fx.push({ type: 'ring', a, b, ring });
+    }
+    if (s.toast) { const t = Object.assign(document.createElement('div'), { className: 'toast', textContent: s.toast[2] }); el.append(t); s.fx.push({ type: 'toast', a: s.toast[0], b: s.toast[1], el: t }); }
+    screen.append(el); s.el = el;
+  }
+  for (const f of D.floats) {
+    const el = document.createElement('div'); el.className = `float ${f.kind === 'bubble' ? 'tg' : 'chip'}`;
+    if (f.kind === 'bubble') { el.innerHTML = f.html; Object.assign(el.style, { left: `${LAY.bubble.x}px`, top: `${LAY.bubble.y}px`, width: `${LAY.bubble.w}px`, fontSize: `${LAY.bubble.fs}px` }); }
+    else { el.innerHTML = `<small>${f.label}</small><div class="nums"><span class="old">${f.from}</span><span class="arrow">→</span><span class="new">${f.from}</span></div>`; Object.assign(el.style, { left: `${LAY.chip.x}px`, top: `${LAY.chip.y}px`, fontSize: '36px' }); el.querySelector('.nums').style.fontSize = `${LAY.chip.fs}px`; }
+    canvas.append(el); f.el = el;
+  }
+}
+
+function camAt(s, t) {
+  const k = s.cam; let i = 0;
+  while (i < k.length - 1 && t >= k[i + 1][0]) i++;
+  const a = k[i], b = k[Math.min(i + 1, k.length - 1)];
+  const e = a === b ? 0 : ease.inout(P(t, a[0], b[0]));
+  return { fx: lerp(a[1], b[1], e), fy: lerp(a[2], b[2], e), z: lerp(a[3], b[3], e) };
+}
+
+function seek(t) {
+  // background drift
+  $('#b1').style.transform = `translate(${Math.sin(t * .5) * 90}px, ${Math.cos(t * .4) * 70}px)`;
+  $('#b2').style.transform = `translate(${Math.cos(t * .45) * 80}px, ${Math.sin(t * .35) * 80}px)`;
+
+  // hook
+  const h = D.hook, hv = t < h.b ? ease.out(P(t, h.a, h.a + .35)) : 1 - ease.in(P(t, h.b - .05, h.b + .35));
+  const hookOn = t < h.b + .4;
+  $('#hook').style.opacity = hookOn ? hv : 0;
+  $('#hook').style.transform = `scale(${lerp(.94, 1, ease.out(P(t, h.a, h.a + .6)))})`;
+  $('#hook .em').style.transform = `translateY(${Math.sin(t * 6) * 10}px) rotate(${Math.sin(t * 4) * 4}deg)`;
+
+  // cta
+  const c = D.cta, cv = ease.out(P(t, c.a, c.a + .5));
+  $('#cta').style.opacity = cv; $('#cta').style.transform = `scale(${lerp(.94, 1, cv)})`;
+  $('#orange').style.opacity = Math.min(1, (hookOn ? hv : 0) + cv);
+
+  $('#prog').style.opacity = D.progress ? 1 : 0; $('#prog').style.width = `${clamp(t / D.dur) * W}px`;
+  // brand + caption + phone visibility
+  const phoneWin = D.phone[0];
+  const inP = ease.out(P(t, phoneWin[0], phoneWin[0] + .9)), outP = ease.in(P(t, phoneWin[1], phoneWin[1] + .6));
+  const off = (1 - inP) + outP;
+  const slide = V ? H - LAY.py + 60 : W - LAY.px + 60;
+  phone.style.transform = V ? `translateY(${off * slide}px) rotate(${(1 - inP) * 3}deg)` : `translateX(${off * slide}px) rotate(${(1 - inP) * 3}deg)`;
+  const showUI = Math.min(inP, 1 - outP);
+  $('#brand').style.opacity = showUI;
+
+  // captions
+  const idx = D.caps.findIndex((c2) => t >= c2[0] && t < c2[1]);
+  const capEl = $('#cap');
+  if (idx !== capIdx) { capIdx = idx; if (idx >= 0) { $('#cap h1').innerHTML = D.caps[idx][2]; $('#cap p').textContent = D.caps[idx][3]; const st = $('#cap .step'); st.textContent = D.caps[idx][4] || ''; st.style.display = D.caps[idx][4] ? 'block' : 'none'; } }
+  if (idx >= 0) {
+    const [a, b] = D.caps[idx], pin = ease.out(P(t, a, a + .5)), pout = ease.in(P(t, b - .35, b));
+    capEl.style.opacity = pin * (1 - pout);
+    capEl.style.transform = `translateY(${(1 - pin) * 50 - pout * 24}px)`;
+  } else capEl.style.opacity = 0;
+
+  // shots
+  for (const s of D.shots) {
+    const vis = Math.min(P(t, s.a, s.a + .3), 1 - P(t, s.b - .3, s.b));
+    s.el.style.opacity = vis;
+    if (vis <= 0) continue;
+    const cam = camAt(s, clamp(t, s.cam[0][0], 1e9)), z = K * cam.z;
+    let tx = LAY.Sw / 2 - cam.fx * z, ty = LAY.Sh / 2 - cam.fy * z;
+    tx = clamp(tx, LAY.Sw - 780 * z, 0); ty = clamp(ty, LAY.Sh - 1688 * z, 0);
+    s.el.style.transform = `translate(${tx}px, ${ty}px) scale(${z})`;
+    for (const f of s.fx) {
+      if (f.type === 'tap') {
+        const d = t - f.t;
+        f.touch.style.opacity = d > -.45 && d < .25 ? (d < -.3 ? P(d, -.45, -.3) : 1 - P(d, .1, .25)) : 0;
+        f.touch.style.transform = `scale(${d < 0 ? 1.15 : lerp(.8, 1, P(d, 0, .2))})`;
+        const r = P(t, f.t, f.t + .75);
+        f.rip.style.opacity = r > 0 && r < 1 ? (1 - r) * .95 : 0; f.rip.style.transform = `scale(${lerp(.3, 2.1, ease.out(r))})`;
+      } else if (f.type === 'ring') {
+        const o = Math.min(P(t, f.a, f.a + .3), 1 - P(t, f.b - .3, f.b));
+        f.ring.style.opacity = o; f.ring.style.transform = `scale(${1 + Math.sin((t - f.a) * 7) * .012})`;
+      } else if (f.type === 'toast') {
+        const o = Math.min(ease.out(P(t, f.a, f.a + .35)), 1 - P(t, f.b - .3, f.b));
+        f.el.style.opacity = o; f.el.style.transform = `translateX(-50%) translateY(${(1 - o) * 40}px)`;
+      }
+    }
+  }
+
+  // floating cards
+  for (const f of D.floats) {
+    const o = Math.min(ease.back(P(t, f.a, f.a + .6)), 1 - P(t, f.b - .4, f.b));
+    f.el.style.opacity = clamp(o, 0, 1);
+    f.el.style.transform = `translateY(${(1 - clamp(o, 0, 1)) * 70}px) scale(${.96 + .04 * clamp(o, 0, 1)})`;
+    if (f.kind === 'count') {
+      const flipped = t >= f.flip, pop = 1 + Math.sin(P(t, f.flip, f.flip + .4) * Math.PI) * .18;
+      const nums = f.el.querySelector('.nums');
+      nums.innerHTML = flipped ? `<span class="old">${f.from}</span><span class="arrow">→</span><span class="new" style="display:inline-block;transform:scale(${pop})">${f.to}</span>` : `<span class="new">${f.from}</span>`;
+    }
+  }
+}
+
+window.ready = Promise.all([fetch('assets/meta.json').then((r) => r.json()), fetch('assets/meta-howto.json').then((r) => (r.ok ? r.json() : { boxes: {} }))]).then(async ([m, h]) => {
+  M = { ...m, boxes: { ...m.boxes, ...h.boxes } }; build();
+  await Promise.all([...document.images].map((i) => i.decode().catch(() => {})));
+  await document.fonts.ready;
+  window.DURATION = D.dur; window.W = W; window.H = H;
+  seek(0);
+  return { dur: D.dur, W, H };
+});
+window.seek = seek;
+</script>
+</body>
+</html>

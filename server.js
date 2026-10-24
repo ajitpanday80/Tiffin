@@ -604,6 +604,8 @@ const MIME = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.webmanifest': 'application/manifest+json',
+  '.mp4': 'video/mp4',
+  '.jpg': 'image/jpeg',
 };
 
 const SECURITY = {
@@ -717,7 +719,21 @@ function serveStatic(req, res, url) {
     res.writeHead(404, { 'Content-Type': 'text/plain', ...SECURITY });
     return res.end('Not found');
   }
-  res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache', ...SECURITY });
+  const type = MIME[path.extname(file)] || 'application/octet-stream';
+  const size = fs.statSync(file).size;
+  // Range support: browsers need it to play and seek video (Safari insists on it)
+  const m = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
+  if (m && (m[1] || m[2])) {
+    const start = m[1] ? Number(m[1]) : Math.max(0, size - Number(m[2]));
+    const end = m[1] && m[2] ? Math.min(Number(m[2]), size - 1) : size - 1;
+    if (start > end || start >= size) {
+      res.writeHead(416, { 'Content-Range': `bytes */${size}`, ...SECURITY });
+      return res.end();
+    }
+    res.writeHead(206, { 'Content-Type': type, 'Content-Range': `bytes ${start}-${end}/${size}`, 'Content-Length': end - start + 1, 'Accept-Ranges': 'bytes', 'Cache-Control': 'no-cache', ...SECURITY });
+    return fs.createReadStream(file, { start, end }).pipe(res);
+  }
+  res.writeHead(200, { 'Content-Type': type, 'Content-Length': size, 'Accept-Ranges': 'bytes', 'Cache-Control': 'no-cache', ...SECURITY });
   fs.createReadStream(file).pipe(res);
 }
 

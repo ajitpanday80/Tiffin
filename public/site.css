@@ -233,3 +233,20 @@ section[id], h3[id] { scroll-margin-top: 84px; }
 .cta-box .btn { background: #fff; color: var(--brand); box-shadow: none; }
 .cta-box .btn.primary { background: #fff; }
 h2.more { font-size: 22px; margin: 44px 0 4px; }
+
+/* promo videos */
+.vids { display: grid; grid-template-columns: repeat(2, minmax(0, 340px)); gap: 28px; justify-content: center; margin-top: 40px; }
+@media (max-width: 760px) { .vids { grid-template-columns: minmax(0, 340px); } }
+.vid { display: grid; gap: 14px; }
+.vid video { width: 100%; aspect-ratio: 9 / 16; border-radius: 28px; background: #1f1810; box-shadow: 0 30px 60px rgba(120, 60, 0, .25); object-fit: cover; }
+.vid figcaption { display: grid; gap: 2px; text-align: center; }
+.vid figcaption span { color: var(--muted); font-size: 15px; }
+
+/* must come after the .auth-side rule above, or it never takes effect on phones */
+@media (max-width: 900px) { .auth-side { display: none; } .auth { grid-template-columns: 1fr; } }
+.howto { margin-top: 64px; text-align: center; }
+.howto h3 { font-size: 24px; letter-spacing: -.02em; margin-bottom: 4px; }
+.fine.center { text-align: center; } .fine a { color: var(--brand); font-weight: 700; }
+.s.watch { padding-top: 56px; }
+.vids.one { grid-template-columns: minmax(0, 340px); justify-content: start; margin: 18px 0 22px; }
+@media (max-width: 760px) { .vids.one { justify-content: center; } }

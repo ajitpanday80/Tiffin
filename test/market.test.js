@@ -192,3 +192,20 @@ test('blog renderer escapes HTML and ignores unsafe links', async () => {
   assert.match(out, /<a href="\/find">ok<\/a>/);
   assert.doesNotMatch(out, /href="javascript/);
 });
+
+test('videos are served with Range support (needed for seeking / Safari)', async () => {
+  const head = await fetch(`${BASE}/videos/provider.mp4`);
+  assert.equal(head.status, 200);
+  assert.equal(head.headers.get('content-type'), 'video/mp4');
+  assert.equal(head.headers.get('accept-ranges'), 'bytes');
+  const total = Number(head.headers.get('content-length'));
+  await head.arrayBuffer();
+  const part = await fetch(`${BASE}/videos/provider.mp4`, { headers: { Range: 'bytes=0-99' } });
+  assert.equal(part.status, 206);
+  assert.equal(part.headers.get('content-range'), `bytes 0-99/${total}`);
+  assert.equal((await part.arrayBuffer()).byteLength, 100);
+  const tail = await fetch(`${BASE}/videos/provider.mp4`, { headers: { Range: 'bytes=-50' } });
+  assert.equal((await tail.arrayBuffer()).byteLength, 50);
+  const bad = await fetch(`${BASE}/videos/provider.mp4`, { headers: { Range: `bytes=${total + 5}-` } });
+  assert.equal(bad.status, 416);
+});

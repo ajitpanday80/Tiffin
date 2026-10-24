@@ -1,0 +1,150 @@
+{
+ "leave": {
+  "from": "2026-10-25",
+  "to": "2026-10-27"
+ },
+ "boxes": {
+  "todayHero": [
+   32,
+   266,
+   716,
+   436
+  ],
+  "todayProgress": [
+   64,
+   762,
+   652,
+   46
+  ],
+  "deliverBtn": [
+   403,
+   1189,
+   313,
+   96
+  ],
+  "firstCard": [
+   32,
+   1040,
+   716,
+   277
+  ],
+  "reportsStats": [
+   32,
+   266,
+   716,
+   376
+  ],
+  "reportsBars": [
+   64,
+   771,
+   652,
+   220
+  ],
+  "reportsFirst": [
+   32,
+   1175,
+   716,
+   370
+  ],
+  "portalForm": [
+   64,
+   470,
+   652,
+   350
+  ],
+  "portalBtn": [
+   64,
+   724,
+   652,
+   96
+  ],
+  "portalDates": [
+   64,
+   547,
+   652,
+   149
+  ],
+  "portalLeaves": [
+   64,
+   848,
+   652,
+   49
+  ],
+  "findSearch": [
+   40,
+   581,
+   700,
+   112
+  ],
+  "findFirstCard": [
+   40,
+   320,
+   700,
+   698
+  ],
+  "findSponsored": [
+   518,
+   352,
+   190,
+   44
+  ],
+  "findJoinBtn": [
+   80,
+   770,
+   620,
+   96
+  ],
+  "findActions": [
+   80,
+   770,
+   620,
+   208
+  ]
+ },
+ "today": {
+  "boxes": 13,
+  "normal": 8,
+  "deluxe": 5,
+  "stops": 12,
+  "pending": 6,
+  "delivered": 6,
+  "leave": 2,
+  "date": "2026-10-24"
+ },
+ "todayAfter": {
+  "boxes": 13,
+  "normal": 8,
+  "deluxe": 5,
+  "stops": 12,
+  "pending": 5,
+  "delivered": 7,
+  "leave": 2
+ },
+ "tomorrow": {
+  "before": 13,
+  "after": 12,
+  "normal": 8,
+  "deluxe": 4,
+  "from": "2026-10-25",
+  "to": "2026-10-27",
+  "leaveDays": 3
+ },
+ "findOrder": [
+  [
+   "Sai Home Tiffins",
+   true
+  ],
+  [
+   "Annapurna Tiffins",
+   false
+  ],
+  [
+   "Maa Ki Rasoi",
+   false
+  ],
+  [
+   "Spice Route Tiffins",
+   false
+  ]
+ ]
+}
