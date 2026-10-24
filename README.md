@@ -26,6 +26,7 @@ npm test             # API tests
 | `DATA_DIR` | where `db.json` lives (default `./data`). Put this on a **persistent disk**. |
 | `TELEGRAM_BOT_TOKEN` | optional, enables Telegram alerts |
 | `COUNTRY` | ISO country code that biases pincode/address lookups (default `in`) |
+| `FORCE_HTTPS` | set to `1` when behind a proxy that sets `X-Forwarded-Proto`: plain-http requests are redirected to https |
 | `PUBLIC_URL` | public address (e.g. `https://tiffin.example.com`) used in the blog's canonical links and sitemap; defaults to the request host |
 | `GEOCODER` | set to `off` to disable address/pincode geocoding (pincode matching still works) |
 | `GEOCODER_CONTACT` | your email/URL, sent in the geocoder User-Agent (OpenStreetMap asks for this) |
@@ -53,6 +54,20 @@ One bot serves all providers; the code ties a chat to one provider.
 `node scripts/make-admin.js 98xxxxxxxx 'a-long-password'`, restart, then sign in at `/login?role=admin`. Admin can add plans, confirm/reject orders, and suspend a listing.
 
 **Privacy.** Providers' public location is rounded to about 1 km before it is stored, and customers only see distance in 0.5 km steps, so repeated searches cannot pinpoint a home kitchen. Customer searches (coordinates) are not stored. The text a customer types is sent to OpenStreetMap's geocoder. **The public Nominatim server has a usage policy (max 1 request/s, no heavy use); for real traffic, use a paid or self-hosted geocoder** (swap it in `lib/geo.js`).
+
+## Your domain: mytiffin.online
+
+Run with:
+
+```bash
+PUBLIC_URL=https://mytiffin.online FORCE_HTTPS=1 TZ=Asia/Kolkata DATA_DIR=/var/lib/tiffin npm start
+```
+
+1. **Use HTTPS, not plain http.** Browsers only allow "Use my current location" (the marketplace's GPS search), service workers and "install to home screen" on HTTPS, and passwords should never cross the internet unencrypted. The app itself speaks plain HTTP on its port; put a reverse proxy in front that handles the certificate (Caddy gets a free Let's Encrypt certificate automatically with just `mytiffin.online { reverse_proxy localhost:3000 }`; nginx + certbot also works), or use a host that provides HTTPS for you.
+2. **DNS:** point an `A` record for `mytiffin.online` (and optionally `www`) at your server's IP. Redirecting `www` to the bare domain is done in the proxy.
+3. The proxy must send `X-Forwarded-Proto` (Caddy does by default; in nginx add `proxy_set_header X-Forwarded-Proto $scheme;` and `Host`). That makes login cookies `Secure` and enables the redirect.
+4. Set `GEOCODER_CONTACT=you@your-email` so OpenStreetMap's geocoder can contact you if needed.
+5. I could not test against your real server or domain from here. After deploying, check: `https://mytiffin.online`, `/sitemap.xml` (URLs should start with https), sign-up, and the marketplace GPS button.
 
 ## Deploying
 

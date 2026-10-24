@@ -722,6 +722,12 @@ function serveStatic(req, res, url) {
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
+  // Behind an HTTPS-terminating proxy: send plain-http visitors to https, and tell browsers to stay on https.
+  if (req.headers['x-forwarded-proto'] === 'http' && process.env.FORCE_HTTPS && req.headers.host) {
+    res.writeHead(301, { Location: `https://${req.headers.host}${req.url}` });
+    return res.end();
+  }
+  if (req.headers['x-forwarded-proto'] === 'https' || req.socket.encrypted) res.setHeader('Strict-Transport-Security', 'max-age=15552000');
   if (url.pathname.startsWith('/api/')) handleApi(req, res, url);
   else if (req.method === 'GET' || req.method === 'HEAD') serveStatic(req, res, url);
   else {
