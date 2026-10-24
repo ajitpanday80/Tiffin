@@ -159,3 +159,36 @@ test('geocoder caches and survives failures', async () => {
   assert.equal(await bad.lookup('x'), null);
   assert.equal(await new Geocoder({ store, enabled: false }).lookup('zzz'), null);
 });
+
+test('blog, help, sitemap and robots', async () => {
+  const get = async (u) => { const r = await fetch(BASE + u); return { status: r.status, type: r.headers.get('content-type'), text: await r.text() }; };
+  const index = await get('/blog');
+  assert.equal(index.status, 200);
+  assert.match(index.text, /Stop cooking for empty doorsteps/);
+  const prov = await get('/blog?for=customers');
+  assert.match(prov.text, /How to choose a tiffin service/);
+  assert.doesNotMatch(prov.text, /Stop cooking for empty doorsteps/);
+  const post = await get('/blog/telegram-alerts-for-your-tiffin-business');
+  assert.equal(post.status, 200);
+  assert.match(post.text, /<h2 id="connect-in-five-steps">/);
+  assert.match(post.text, /<code>\/start YOURCODE<\/code>/);
+  assert.match(post.text, /rel="canonical"/);
+  assert.equal((await get('/blog/nope')).status, 404);
+  assert.equal((await get('/blog/..%2Fserver')).status, 404);
+  const help = await get('/help');
+  assert.equal(help.status, 200);
+  assert.match(help.text, /id="telegram-owner"/);
+  const sm = await get('/sitemap.xml');
+  assert.match(sm.type, /xml/);
+  assert.match(sm.text, /\/blog\/how-to-choose-a-tiffin-service/);
+  assert.match((await get('/robots.txt')).text, /Disallow: \/admin/);
+});
+
+test('blog renderer escapes HTML and ignores unsafe links', async () => {
+  const { md } = await import('../lib/blog.js');
+  const out = md('Hello <script>alert(1)</script> **bold** [ok](/find) [bad](javascript:alert(1))');
+  assert.doesNotMatch(out, /<script>/);
+  assert.match(out, /<strong>bold<\/strong>/);
+  assert.match(out, /<a href="\/find">ok<\/a>/);
+  assert.doesNotMatch(out, /href="javascript/);
+});

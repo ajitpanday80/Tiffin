@@ -7,7 +7,7 @@ A light, mobile-first web app for tiffin providers.
 - **Telegram bot**: instant alert when a customer takes or cancels leave, plus morning/evening summaries and `/today`, `/tomorrow`, `/pending`.
 - **Marketplace** (`/find`): customers find tiffin services nearest-first by GPS, pincode or address, then call, WhatsApp or send a *request to join* that lands in the provider's inbox (one tap to add as a customer).
 - **Advertising**: listing is free; providers can pay for a *Sponsored* spot that only shows to customers near them. Platform admin console at `/admin`.
-- **Website** (`/`) with login / sign-up (`/login`, `/signup`).
+- **Website** (`/`) with login / sign-up (`/login`, `/signup`), a **help guide** (`/help`: provider quick start, Telegram setup, customer guide) and a **blog** (`/blog`, 8 posts in `content/posts.js`, server-rendered, with `/sitemap.xml` and `/robots.txt`).
 - Phone + password accounts, sessions last **30 days** (sliding). Many providers can share one install; each only sees their own data.
 
 No dependencies, no build step, one JSON file for data. Needs **Node 20+**.
@@ -26,10 +26,14 @@ npm test             # API tests
 | `DATA_DIR` | where `db.json` lives (default `./data`). Put this on a **persistent disk**. |
 | `TELEGRAM_BOT_TOKEN` | optional, enables Telegram alerts |
 | `COUNTRY` | ISO country code that biases pincode/address lookups (default `in`) |
+| `PUBLIC_URL` | public address (e.g. `https://tiffin.example.com`) used in the blog's canonical links and sitemap; defaults to the request host |
 | `GEOCODER` | set to `off` to disable address/pincode geocoding (pincode matching still works) |
 | `GEOCODER_CONTACT` | your email/URL, sent in the geocoder User-Agent (OpenStreetMap asks for this) |
 
 ## Telegram setup (5 minutes)
+
+Providers get a friendlier version of this in the app at `/help#telegram`; the owner steps are at `/help#telegram-owner`.
+
 
 1. In Telegram, message **@BotFather** → `/newbot` → copy the token.
 2. Start the server with `TELEGRAM_BOT_TOKEN=<token>`.
@@ -62,6 +66,10 @@ Any host that runs Node with a persistent disk works (a small VPS, Fly.io volume
 - **No self-service password reset** (no SMS/email integration). Reset on the server:
   `node scripts/reset-password.js provider 9811100001 newpassword`
 - Failed logins are rate-limited per phone and per IP (this also means someone can temporarily lock a number out).
+
+## Writing blog posts
+
+Add an object to `content/posts.js` (slug, title, description, audience `providers`|`customers`, emoji, date, body). The body supports `##`/`###` headings, lists, `> quotes`, `**bold**`, `` `code` `` and `[links](/path)`. Restart the server to publish. Keep claims honest: the existing posts use no invented statistics, and example prices are labelled as examples.
 
 ## Good to know / not built
 

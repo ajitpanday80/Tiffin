@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Help and guides | Tiffin Manager</title>
+  <meta name="description" content="Step-by-step guides: set up your tiffin kitchen, connect Telegram alerts, and how customers mark leave or find a tiffin service.">
+  <meta name="theme-color" content="#e8590c">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/site.css">
+</head>
+<body class="site">
+<header class="site-nav"><div class="wrap">
+  <a class="brand" href="/"><img src="/icon.svg" alt="">Tiffin Manager</a>
+  <nav class="nav-links" aria-label="Sections"><a href="/find">Find tiffin</a><a href="/blog">Blog</a><a href="/help">Help</a></nav>
+  <div class="nav-cta" id="navcta"><a class="btn ghost sm" href="/login">Log in</a><a class="btn primary sm" href="/signup">Get started</a></div>
+</div></header>
+
+<main>
+<section class="finder">
+  <div class="wrap">
+    <span class="eyebrow">Help</span>
+    <h1>How to use Tiffin Manager</h1>
+    <p class="lead">Short, step-by-step guides for tiffin providers and for customers. Pick where you are.</p>
+    <div class="fchips">
+      <a class="fchip" href="#providers">👨‍🍳 Provider quick start</a>
+      <a class="fchip" href="#telegram">✈️ Telegram alerts</a>
+      <a class="fchip" href="#customers">🍽 For customers</a>
+      <a class="fchip" href="#together">🤝 How they connect</a>
+      <a class="fchip" href="#install">📱 Install on phone</a>
+    </div>
+  </div>
+</section>
+
+<div class="wrap guide">
+
+<!-- ===================== PROVIDERS ===================== -->
+<section id="providers">
+  <span class="eyebrow">For tiffin providers</span>
+  <h2>Quick start: your first day</h2>
+  <p class="sub">About ten minutes. You only do steps 1 to 3 once.</p>
+  <ol class="gsteps">
+    <li><h3>Create your account</h3><p>Go to <a href="/signup">Get started</a>, choose <b>Tiffin provider</b>, and enter your service name, phone number and a password (6+ characters). You stay logged in on that phone for 30 days.</p></li>
+    <li><h3>Add your customers</h3><p>Open <b>Customers</b> → <b>Add customer</b>. Fill in name, phone, address, <b>Normal</b> or <b>Deluxe</b>, and how many boxes per day. Use <i>Note for kitchen</i> for things like “less spicy”. Under <i>More options</i> you can set a start date, or a last day when someone stops.</p></li>
+    <li><h3>Set up your business</h3><p>In <b>Settings</b> add your phone, your price per box (optional, used for reports), and any weekday you are closed, such as Sunday.</p></li>
+    <li><h3>Every morning: open Today</h3><p>The big number is how many boxes to prepare, split into Normal and Deluxe. Use the arrows to see tomorrow. Customers on leave are already taken out.</p></li>
+    <li><h3>Tick deliveries as you go</h3><p>Tap <b>Delivered ✓</b> on each customer. Use <b>Call</b> and <b>Map</b> if you need them. Tapped by mistake? Open the <b>Delivered</b> tab and press <b>Undo</b>. The bar shows how many are left.</p></li>
+    <li><h3>Handle leave</h3><p>Customers can mark their own leave (see <a href="#together">how they connect</a>). To add one yourself, open the customer and use <b>Leave / holiday</b>: pick the first and last day, then <b>Add leave</b>. Remove it with the ✕.</p></li>
+    <li><h3>Month end: Reports</h3><p>Open <b>Reports</b> to see delivered days, leave days and amount per customer. Send each customer a summary on WhatsApp, or download a spreadsheet.</p></li>
+    <li><h3>Get found: Grow</h3><p>In <b>Grow</b>, switch on your marketplace listing so nearby customers can find you. New join requests appear there, and you can add them as customers in one tap. Advertising is optional.</p></li>
+  </ol>
+  <p class="note-area">Stuck? Read the <a href="#faq">troubleshooting</a> section, or the <a href="/blog">blog</a> for tips on leave policy, pricing and billing.</p>
+</section>
+
+<!-- ===================== TELEGRAM ===================== -->
+<section id="telegram">
+  <span class="eyebrow">Telegram alerts</span>
+  <h2>Connect Telegram in five steps</h2>
+  <p class="sub">Optional, but very useful: you hear about a customer’s leave the moment it happens.</p>
+
+  <h3 class="gh">What you will get</h3>
+  <div class="gtable">
+    <div><b>Leave alerts</b><span>Instantly when a customer marks or cancels leave, with tomorrow’s updated box count.</span></div>
+    <div><b>Morning summary</b><span>Boxes to cook today, and who is on leave. Default time 7:00.</span></div>
+    <div><b>Evening summary</b><span>Tomorrow’s count, in time to plan shopping. Default time 20:00.</span></div>
+    <div><b>New requests</b><span>When someone asks to join from the marketplace.</span></div>
+    <div><b>Commands</b><span><code>/today</code> <code>/tomorrow</code> <code>/pending</code> (who is still waiting for delivery)</span></div>
+  </div>
+
+  <h3 class="gh">Connect your Telegram</h3>
+  <ol class="gsteps">
+    <li><h3>Install Telegram</h3><p>Get the free Telegram app on your phone and sign in.</p></li>
+    <li><h3>Find your code</h3><p>In Tiffin Manager open <b>Settings → Telegram alerts</b>. You will see the bot’s name (like <code>@YourBot</code>) and your personal connect code.</p></li>
+    <li><h3>Open the bot</h3><p>In Telegram, search for that bot name, open it and tap <b>Start</b>.</p></li>
+    <li><h3>Send your code</h3><p>Type <code>/start</code>, a space, then your code. Example: <code>/start ABCD2345</code></p></li>
+    <li><h3>Check it works</h3><p>The bot says you are connected. Back in the app, press <b>Send test</b>. You can change the morning and evening times in the same place, or clear a time to turn that summary off.</p></li>
+  </ol>
+  <p class="note-area">Use a private chat with the bot (not a group). Your code links the chat to your kitchen only, so other providers on the same bot never see your customers. If the bot can, it deletes your code message after connecting.</p>
+
+  <details class="faqitem"><summary>The bot says “That code is not right”</summary><p>Copy the code again from <b>Settings → Telegram alerts</b>. Codes are not case-sensitive. If you pressed <b>Disconnect</b> earlier, the code changed, so use the new one. After 5 wrong tries the bot waits an hour before accepting codes from that chat.</p></details>
+  <details class="faqitem"><summary>The bot does not answer at all</summary><p>The person who runs the system may not have switched Telegram on yet. In Settings you would see “Telegram alerts are not switched on yet”. Send them the section below.</p></details>
+  <details class="faqitem"><summary>I changed my phone or Telegram account</summary><p>In <b>Settings → Telegram alerts</b> press <b>Disconnect</b>, then connect again from the new phone with the new code.</p></details>
+
+  <h3 class="gh" id="telegram-owner">For whoever runs the system (one-time setup)</h3>
+  <p class="sub">One bot serves every provider. You create it once.</p>
+  <ol class="gsteps">
+    <li><h3>Create the bot</h3><p>In Telegram, open <b>@BotFather</b> and send <code>/newbot</code>. Choose a display name and a username ending in <code>bot</code>. BotFather replies with a <b>token</b>.</p></li>
+    <li><h3>Keep the token secret</h3><p>Anyone with the token can control the bot. Do not share it or put it in the website code or a public repository.</p></li>
+    <li><h3>Give it to the server</h3><p>Start the app with the token in the environment: <code>TELEGRAM_BOT_TOKEN=your-token npm start</code>. On a hosting service, add it as an environment variable and restart.</p></li>
+    <li><h3>Confirm it is running</h3><p>The server log shows <code>[telegram] bot @YourBot ready</code>. Providers will now see the bot name and their connect code in Settings.</p></li>
+    <li><h3>Optional: polish the bot</h3><p>In BotFather you can set a profile picture and description (<code>/setuserpic</code>, <code>/setdescription</code>) and a command list (<code>/setcommands</code>): <code>today</code>, <code>tomorrow</code>, <code>pending</code>.</p></li>
+  </ol>
+  <details class="faqitem"><summary>Troubleshooting the server side</summary>
+    <p><b>“getMe failed” in the log:</b> the token is wrong or has extra spaces. Create a new one in BotFather with <code>/token</code> and update the variable.</p>
+    <p><b>Network errors:</b> the server must be able to reach <code>api.telegram.org</code> over HTTPS. Some hosts restrict outgoing connections.</p>
+    <p><b>Run only one copy:</b> the bot listens by polling. If two copies of the app use the same token at the same time, they fight and Telegram reports a conflict. Keep a single instance, or stop the old one first.</p>
+    <p><b>Timing:</b> summaries follow the server’s <code>TZ</code> setting (default Asia/Kolkata). Set it to your own timezone.</p>
+  </details>
+</section>
+
+<!-- ===================== CUSTOMERS ===================== -->
+<section id="customers">
+  <span class="eyebrow">For customers</span>
+  <h2>Using Tiffin Manager as a customer</h2>
+  <p class="sub">It is free for you. You can log in, or just use a personal link your provider sends.</p>
+
+  <h3 class="gh">Mark your leave</h3>
+  <ol class="gsteps">
+    <li><h3>Get access</h3><p>Either open the <b>personal link</b> your provider sent you (no password needed), or <a href="/signup?role=customer">create a login</a> using the same phone number your provider has saved for you, and choose a password.</p></li>
+    <li><h3>Pick your days</h3><p>Choose the first and last day you do not need tiffin, then tap <b>Mark my leave</b>. Your provider’s box count updates and they get an alert.</p></li>
+    <li><h3>Changed your mind?</h3><p>Under <b>Your leaves</b>, tap <b>Cancel</b>. A leave that has not started is removed. If it is already running, only the remaining days are cancelled and the days already gone stay as leave. For anything urgent or same-day, please call your provider.</p></li>
+  </ol>
+  <p class="note-area">By default you can mark leave from tomorrow onwards. Some providers allow same-day changes until a set hour. If your date is not accepted, you will see the earliest allowed date.</p>
+
+  <h3 class="gh">Find a new tiffin service</h3>
+  <ol class="gsteps">
+    <li><h3>Search</h3><p>Open <a href="/find">Find tiffin</a>. Tap <b>Use my current location</b>, or type your pincode or address. You do not need an account.</p></li>
+    <li><h3>Compare</h3><p>Results are nearest first. You see the food type, meals, price and approximate distance. A <b>Sponsored</b> label means the provider paid for a top spot. Sponsored places are only shown to people near them.</p></li>
+    <li><h3>Contact or join</h3><p>Call or WhatsApp, or tap <b>Request to join</b> and send your name, phone and address. Your details go only to that provider.</p></li>
+  </ol>
+
+  <details class="faqitem"><summary>It says my phone number was not found</summary><p>You can only create a login with a number your provider has added. Ask them to add or correct it. Numbers are matched on the last 10 digits, so the country code does not matter.</p></details>
+  <details class="faqitem"><summary>I forgot my password</summary><p>There is no automatic reset yet. Ask the person who runs the system to reset it. Meanwhile your personal link from your provider still works.</p></details>
+  <details class="faqitem"><summary>I use more than one tiffin service</summary><p>If each saved your number, your login shows all of them as separate cards, each with its own leave.</p></details>
+</section>
+
+<!-- ===================== TOGETHER ===================== -->
+<section id="together">
+  <span class="eyebrow">Providers and customers together</span>
+  <h2>How the two sides connect</h2>
+  <p class="sub">One simple loop keeps everyone informed.</p>
+  <ol class="gsteps flow">
+    <li><h3>Customer finds you</h3><p>They search in the <a href="/find">marketplace</a>, or you simply tell them about your service.</p></li>
+    <li><h3>You add them</h3><p>A join request lands in <b>Grow</b>. Tap <b>Add as customer</b>, or add them yourself with their phone number.</p></li>
+    <li><h3>You share access</h3><p>Open the customer and tap <b>WhatsApp</b> to send their personal leave link, or tell them to create a login with the same phone number.</p></li>
+    <li><h3>Customer marks leave</h3><p>From their phone, in seconds.</p></li>
+    <li><h3>You are told</h3><p>Instant Telegram message and your Today count updates. Nothing to chase.</p></li>
+    <li><h3>You deliver, tick, and bill</h3><p>Deliveries and leave days feed your monthly report, so the bill matches what both of you saw.</p></li>
+  </ol>
+
+  <div class="gtable who">
+    <div><b>Provider</b><span>Adds customers · sees today’s count · ticks deliveries · reads reports · gets Telegram alerts · lists in the marketplace</span></div>
+    <div><b>Customer</b><span>Marks and cancels own leave · sees today’s status · searches for services · requests to join</span></div>
+    <div><b>Both</b><span>Log in with phone number and password · stay logged in for 30 days · change password any time</span></div>
+  </div>
+</section>
+
+<!-- ===================== INSTALL ===================== -->
+<section id="install">
+  <span class="eyebrow">Tip</span>
+  <h2>Add it to your phone’s home screen</h2>
+  <p class="sub">It then opens like an app, with no browser bar.</p>
+  <div class="gtable">
+    <div><b>Android (Chrome)</b><span>Open the site, tap the ⋮ menu, then <b>Install app</b> or <b>Add to Home screen</b>.</span></div>
+    <div><b>iPhone (Safari)</b><span>Open the site, tap the Share button, then <b>Add to Home Screen</b>.</span></div>
+    <div><b>Computer</b><span>Just bookmark it. In Chrome or Edge you can also use the install icon in the address bar.</span></div>
+  </div>
+</section>
+
+<!-- ===================== FAQ ===================== -->
+<section id="faq">
+  <span class="eyebrow">Troubleshooting</span>
+  <h2>Common questions</h2>
+  <details class="faqitem"><summary>The count on Today looks wrong</summary><p>Check that the customer’s <b>start date</b> and <b>last day</b> (More options) are right, that closed weekdays in Settings are correct, and whether they have leave on that date. Boxes per day also multiplies the count.</p></details>
+  <details class="faqitem"><summary>I marked Delivered by mistake</summary><p>Open the <b>Delivered</b> tab on Today and press <b>Undo</b>.</p></details>
+  <details class="faqitem"><summary>I forgot my password</summary><p>There is no automatic reset yet. The person who runs the system can reset it for you. While logged in you can change it any time under Settings.</p></details>
+  <details class="faqitem"><summary>I am not in the marketplace</summary><p>In <b>Grow</b>, the listing switch must be on, and you need an area plus either a pincode or a set location. Press <b>Save listing</b>. A listing can also be hidden if it was suspended by the administrator.</p></details>
+  <details class="faqitem"><summary>Is my customers’ data private?</summary><p>Each provider only sees their own customers. In the marketplace only a rough location (about 1 km) and the business details you choose are shown. A customer’s search location is not stored.</p></details>
+</section>
+
+</div>
+</main>
+
+<footer class="site"><div class="wrap"><a class="brand" href="/"><img src="/icon.svg" alt="">Tiffin Manager</a><span><a href="/blog">Blog</a> · <a href="/help">Help</a> · <a href="/find">Find tiffin</a></span></div></footer>
+<script src="/site.js"></script>
+</body>
+</html>

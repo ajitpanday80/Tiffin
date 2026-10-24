@@ -94,7 +94,8 @@ function draw() {
       h('p', {}, 'Hi ', h('b', {}, data.name), '! 👋'),
       data.subscriptions.length ? data.subscriptions.map(subCard) : h('div', { class: 'card empty' }, h('div', { class: 'big' }, '🍽'), h('p', {}, 'No tiffin service found for your number right now. Please ask your provider to check it.')),
       passwordCard(),
-      h('p', { class: 'help', style: { textAlign: 'center' } }, 'To change something that has already started, please call your provider.')));
+      h('p', { class: 'help', style: { textAlign: 'center' } }, 'For anything urgent or same-day, please call your provider.'),
+      h('p', { class: 'help', style: { textAlign: 'center' } }, h('a', { href: '/find' }, 'Find another tiffin service'), ' · ', h('a', { href: '/help#customers' }, 'Help'))));
 }
 
 api('GET', '/api/my').then((d) => { data = d; draw(); }).catch((e) => { if (e.message !== 'login') $('#root').replaceChildren(h('main', {}, h('div', { class: 'card empty' }, h('p', {}, e.message)))); });

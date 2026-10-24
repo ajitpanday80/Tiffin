@@ -12,6 +12,7 @@ import { Telegram, leaveText, esc } from './lib/telegram.js';
 import { phoneKey, validPhone, hashPassword, verifyPassword, createSession, lookupSession, destroySession, SESSION_MS } from './lib/auth.js';
 import * as L from './lib/logic.js';
 import * as M from './lib/market.js';
+import { renderIndex, renderPost, findPost, postSlugs } from './lib/blog.js';
 import { Geocoder, snap, validCoords } from './lib/geo.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -681,9 +682,32 @@ async function handleApi(req, res, url) {
 }
 
 // clean URLs -> html files
-const PAGES = { '/find': 'find.html', '/admin': 'admin.html', '/': 'index.html', '/login': 'login.html', '/signup': 'login.html', '/app': 'app.html', '/me': 'me.html' };
+const PAGES = { '/help': 'help.html', '/find': 'find.html', '/admin': 'admin.html', '/': 'index.html', '/login': 'login.html', '/signup': 'login.html', '/app': 'app.html', '/me': 'me.html' };
+
+function serveGenerated(req, res, url) {
+  const proto = req.headers['x-forwarded-proto'] || (req.socket.encrypted ? 'https' : 'http');
+  const base = (process.env.PUBLIC_URL || `${proto}://${req.headers.host || `localhost:${PORT}`}`).replace(/\/$/, '');
+  const send = (status, type, body) => {
+    res.writeHead(status, { 'Content-Type': type, 'Cache-Control': 'no-cache', ...SECURITY });
+    res.end(req.method === 'HEAD' ? undefined : body);
+  };
+  const path_ = url.pathname.replace(/(.)\/$/, '$1');
+  if (path_ === '/blog') return send(200, 'text/html; charset=utf-8', renderIndex(url.searchParams.get('for'), base)), true;
+  const m = /^\/blog\/([a-z0-9-]+)$/.exec(path_);
+  if (m) {
+    const post = findPost(m[1]);
+    return send(post ? 200 : 404, 'text/html; charset=utf-8', post ? renderPost(post, base) : '<h1>Post not found</h1><p><a href="/blog">Back to the blog</a></p>'), true;
+  }
+  if (path_ === '/sitemap.xml') {
+    const urls = ['/', '/find', '/help', '/blog', ...postSlugs().map((s) => `/blog/${s}`)];
+    return send(200, 'application/xml; charset=utf-8', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `  <url><loc>${base}${u}</loc></url>`).join('\n')}\n</urlset>\n`), true;
+  }
+  if (path_ === '/robots.txt') return send(200, 'text/plain; charset=utf-8', `User-agent: *\nAllow: /\nDisallow: /app\nDisallow: /me\nDisallow: /admin\nDisallow: /api/\nDisallow: /c/\nSitemap: ${base}/sitemap.xml\n`), true;
+  return false;
+}
 
 function serveStatic(req, res, url) {
+  if (serveGenerated(req, res, url)) return;
   let rel = decodeURIComponent(url.pathname);
   if (/^\/c\/[^/]+\/?$/.test(rel)) rel = '/c.html';
   else if (PAGES[rel.replace(/(.)\/$/, '$1')]) rel = `/${PAGES[rel.replace(/(.)\/$/, '$1')]}`;

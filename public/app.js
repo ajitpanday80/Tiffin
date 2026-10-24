@@ -425,7 +425,7 @@ function renderSettings() {
   const save = h('button', { class: 'btn primary block', type: 'submit' }, 'Save settings');
 
   const tgBlock = !tg.configured
-    ? h('div', { class: 'help' }, h('p', {}, 'Telegram alerts are not switched on yet. Whoever installed this app needs to add the bot token on the server. Steps are in the README file (takes about 5 minutes).'))
+    ? h('div', { class: 'help' }, h('p', {}, 'Telegram alerts are not switched on yet. Whoever runs this system needs to add the bot token on the server (about 5 minutes). ', h('a', { href: '/help#telegram-owner', target: '_blank', rel: 'noopener' }, 'Setup steps for them')))
     : h('div', { class: 'stack' },
         h('div', { class: 'status' }, h('span', { class: `dot ${tg.linked ? 'on' : ''}` }), tg.linked ? 'Connected to your Telegram' : 'Not connected yet'),
         !tg.linked && h('div', { class: 'help' }, 'Connect in 3 steps:', h('ol', {}, h('li', {}, 'Open Telegram and search for ', h('b', {}, `@${tg.bot}`)), h('li', {}, 'Tap Start, then send: ', h('code', {}, `/start ${tg.code}`)), h('li', {}, 'Come back here and refresh this page'))),
@@ -433,7 +433,7 @@ function renderSettings() {
           h('button', { type: 'button', class: 'btn sm', onclick: () => act(() => api('POST', '/api/telegram/test'), 'Test message sent') }, 'Send test'),
           h('button', { type: 'button', class: 'btn sm danger', onclick: async () => { if (confirm('Disconnect Telegram alerts?')) { S.settings = (await act(() => api('POST', '/api/telegram/unlink'))) || S.settings; refresh(); } } }, 'Disconnect')),
         h('div', { class: 'grid2' }, h('label', { class: 'field' }, 'Morning summary', f.morningTime), h('label', { class: 'field' }, 'Evening: tomorrow', f.eveningTime)),
-        h('p', { class: 'help' }, 'You also get an instant alert whenever a customer marks leave. Clear a time to turn that summary off.'));
+        h('p', { class: 'help' }, 'You also get an instant alert whenever a customer marks leave. Clear a time to turn that summary off. ', h('a', { href: '/help#telegram', target: '_blank', rel: 'noopener' }, 'Full Telegram guide')));
 
   return h('form', {
     class: 'stack', onsubmit: async (e) => {
@@ -461,6 +461,7 @@ function renderSettings() {
     h('div', { class: 'card stack' }, h('h2', {}, '✈️ Telegram alerts'), tgBlock),
     save,
     passwordCard(),
+    h('a', { class: 'btn', href: '/help', target: '_blank', rel: 'noopener' }, '📖 Help and guides'),
     h('button', { type: 'button', class: 'btn', onclick: async () => { await act(() => api('POST', '/api/logout')); location.href = '/'; } }, 'Log out'));
 }
 
