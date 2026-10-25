@@ -43,7 +43,7 @@ function draw() {
   const where = isProv ? 'the Telegram chat you connected to MyTiffin (Settings → Telegram alerts)' : 'the Telegram chat you connected on your MyTiffin “My tiffin” page';
   const fallback = isProv
     ? h('div', { class: 'note-box' }, 'No Telegram connected for this number? The code cannot be sent. Contact support to get a reset link.')
-    : h('div', { class: 'note-box' }, 'No Telegram connected? Ask your tiffin provider for a reset link: they open your name in their MyTiffin app and tap “Create reset link”, then send it to you on WhatsApp. Your personal leave link keeps working without a password.');
+    : h('div', { class: 'note-box' }, 'No Telegram connected? Ask your tiffin provider for a reset link: they open your name in their MyTiffin app and tap “Create reset link”, then send it to you on Telegram. Your personal leave link keeps working without a password.');
   let body;
 
   if (step === 1) {

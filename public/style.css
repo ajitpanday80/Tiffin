@@ -193,7 +193,7 @@ dialog::backdrop { background: rgba(30, 18, 5, .55); }
 .sheet-body { overflow: auto; padding: 8px 18px calc(22px + env(safe-area-inset-bottom)); display: grid; gap: 14px; }
 .chiprow { display: flex; flex-wrap: wrap; gap: 8px; }
 .leave-chip { display: inline-flex; align-items: center; gap: 4px; padding: 6px 6px 6px 12px; border-radius: 99px; background: var(--deluxe-bg); color: var(--deluxe-ink); font-weight: 700; font-size: 14px; }
-.leave-chip button { border: 0; background: rgba(0, 0, 0, .1); width: 28px; height: 28px; border-radius: 50%; cursor: pointer; color: inherit; font-size: 14px; }
+.leave-chip button { border: 0; background: rgba(0, 0, 0, .1); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; color: inherit; font-size: 14px; }
 details summary { cursor: pointer; font-weight: 700; color: var(--muted); padding: 6px 0; }
 details[open] summary { margin-bottom: 8px; }
 details .stack { margin-top: 4px; }
@@ -225,3 +225,15 @@ input[type=date], input[type=time] { min-width: 0; max-width: 100%; -webkit-appe
 /* wordmark: "My" in the brand colour, "Tiffin" in the text colour (the SVG logo files carry the same two tones) */
 .wm { font-weight: 800; letter-spacing: -.02em; }
 .wm b { font-weight: inherit; color: var(--brand); }
+
+/* customer portal: one column on phones, services + account side by side on tablets/laptops */
+main.me-wrap { max-width: 1040px; }
+.me-hi { margin-bottom: 14px; font-size: 18px; }
+.me-grid { display: grid; gap: 16px; align-items: start; }
+@media (min-width: 820px) { .me-grid { grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; } .me-grid > aside { position: sticky; top: 84px; } }
+.small { font-size: 13px; }
+.link-btn { background: none; border: 0; padding: 0; color: var(--brand); font-weight: 800; cursor: pointer; text-decoration: underline; }
+details.stopbox, details.pastbox { border-top: 1px solid var(--line); padding-top: 10px; }
+details.pastbox { border-top: 0; padding-top: 16px; }
+details.stopbox summary, details.pastbox summary { cursor: pointer; font-weight: 700; color: var(--muted); }
+details.stopbox[open] summary, details.pastbox[open] summary { margin-bottom: 12px; }

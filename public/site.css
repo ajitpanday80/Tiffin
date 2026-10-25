@@ -119,7 +119,7 @@ footer.site a { color: inherit; }
 @media (max-width: 900px) { .mobile-brand { display: flex; } }
 .seg.two button { font-size: 15px; }
 .auth-foot { text-align: center; color: var(--muted); font-size: 15px; }
-.auth-foot a, .auth-foot button { color: var(--brand); font-weight: 700; background: none; border: 0; cursor: pointer; text-decoration: none; padding: 0; font-size: inherit; }
+.auth-foot a, .auth-foot button { color: var(--brand); font-weight: 700; background: none; border: 0; cursor: pointer; text-decoration: none; padding: 8px 6px; min-height: 40px; font-size: inherit; }
 .note-box { padding: 12px 14px; border-radius: 14px; background: var(--soft); font-size: 14px; color: var(--muted); }
 .band .eyebrow { color: #fff; opacity: .9; }
 .mk-row .a1 { background: #e8590c; } .mk-row .a2 { background: #9c36b5; } .mk-row .a3 { background: #1c7ed6; }
@@ -149,7 +149,7 @@ main.auth-main { padding: 28px 20px; }
 .ractions { display: flex; flex-wrap: wrap; gap: 8px; }
 .ractions .btn { flex: 1 1 120px; }
 .note-area { font-size: 14px; color: var(--muted); padding: 10px 14px; border-radius: 14px; background: var(--soft); }
-.more-btn { background: none; border: 0; padding: 0; color: var(--brand); font-weight: 700; cursor: pointer; justify-self: start; }
+.more-btn { background: none; border: 0; padding: 8px 4px; min-height: 40px; color: var(--brand); font-weight: 700; cursor: pointer; justify-self: start; }
 .empty-box { text-align: center; padding: 40px 16px; }
 .empty-box .big { font-size: 52px; }
 .empty-box .btn { margin-top: 14px; }

@@ -99,7 +99,7 @@ const CUSTOMERS = [
     await scrollSheetTo('own leave link');
     await prodUrl(p);
     await shot(p, 'sheet-link');
-    meta.boxes.sheetLinkCard = await box(p, '#sheet .card:has(h2:has-text("own leave link"))'); meta.boxes.sheetWhatsapp = await box(p, '#sheet a:has-text("WhatsApp")');
+    meta.boxes.sheetLinkCard = await box(p, '#sheet .card:has(h2:has-text("own leave link"))'); meta.boxes.sheetShare = await box(p, '#sheet a:has-text("Telegram")');
     await p.click('#sheet [aria-label=Close]');
 
     // settings: prices/closed days, then Telegram (the server has no real bot here, so show the connected-bot view with a placeholder name)

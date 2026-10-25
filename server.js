@@ -122,6 +122,34 @@ function checkRange(from, to, min) {
 }
 
 // What a customer is allowed to see about their own subscription.
+const isEnded = (c) => !!c.endDate && c.endDate < L.todayStr();
+
+// One provider cannot hold the same phone number twice (an ended customer's number may be reused).
+function assertPhoneFree(t, phone, exceptId) {
+  const k = phoneKey(phone);
+  if (!k) return;
+  const dupe = t.customers.find((x) => x.id !== exceptId && x.phone && phoneKey(x.phone) === k && !isEnded(x));
+  if (dupe) throw bad(`${dupe.name} already has this phone number. Edit that customer instead of adding a second one.`, 409);
+}
+
+// A customer may already have a MyTiffin login (and a connected Telegram). Tell them a new provider added them,
+// so nobody is signed up to a service without knowing.
+function announceToCustomer(t, c) {
+  const user = c.phone && db.users.find((u) => u.role === 'customer' && u.key === phoneKey(c.phone));
+  if (user?.telegramChatId && tg.configured) {
+    tg.send(user.telegramChatId, `🆕 <b>${esc(t.settings.businessName)}</b> added you as a tiffin customer (${c.type === 'deluxe' ? 'Deluxe' : 'Normal'}${c.qty > 1 ? ` ×${c.qty}` : ''}).\nNot expecting this? Open My tiffin and tap “Stop with this provider”.`);
+  }
+}
+
+function addCustomer(t, fields) {
+  assertPhoneFree(t, fields.phone);
+  const c = { id: newId(), token: crypto.randomBytes(12).toString('base64url'), ...fields, leaves: [], createdAt: Date.now() };
+  t.customers.push(c);
+  store.save();
+  announceToCustomer(t, c);
+  return c;
+}
+
 function customerView(t, c) {
   const today = L.todayStr();
   let status = 'none';
@@ -135,6 +163,12 @@ function customerView(t, c) {
     today,
     status,
     minDate: L.leaveMinDate(t),
+    addedAt: c.createdAt || null,
+    endDate: c.endDate || '',
+    ended: isEnded(c), // finished: shown under "Past"
+    stopping: !!c.endDate && !isEnded(c), // will end on endDate
+    endedBy: c.endedBy || '', // 'customer' when they stopped it themselves
+    stopMin: L.addDays(L.leaveMinDate(t), -1), // earliest allowed last tiffin day
     leaves: c.leaves.filter((l) => l.to >= today).map(({ id, from, to }) => ({ id, from, to })),
   };
 }
@@ -365,7 +399,6 @@ route('PUT', '/api/settings', 'provider', ({ t, body: b }) => {
   s.businessName = str(b.businessName, 60) || s.businessName;
   s.businessPhone = str(b.businessPhone, 20);
   s.currency = str(b.currency, 4) || '₹';
-  s.countryCode = str(b.countryCode, 4).replace(/\D/g, '') || s.countryCode;
   s.prices = {
     normal: int(b.prices?.normal, 0, 1e6, s.prices.normal),
     deluxe: int(b.prices?.deluxe, 0, 1e6, s.prices.deluxe),
@@ -413,16 +446,14 @@ route('GET', '/api/customers', 'provider', ({ t }) => ({
   customers: t.customers.map((c) => ({ ...c, hasAccount: !!c.phone && db.users.some((u) => u.role === 'customer' && u.key === phoneKey(c.phone)) })),
 }));
 
-route('POST', '/api/customers', 'provider', ({ t, body }) => {
-  const c = { id: newId(), token: crypto.randomBytes(12).toString('base64url'), ...cleanCustomer(body), leaves: [] };
-  t.customers.push(c);
-  store.save();
-  return c;
-});
+route('POST', '/api/customers', 'provider', ({ t, body }) => addCustomer(t, cleanCustomer(body)));
 
 route('PUT', '/api/customers/:id', 'provider', ({ t, params, body }) => {
   const c = findCustomer(t, params.id);
-  Object.assign(c, cleanCustomer(body, c));
+  const fields = cleanCustomer(body, c);
+  if (phoneKey(fields.phone) !== phoneKey(c.phone)) assertPhoneFree(t, fields.phone, c.id);
+  if (fields.endDate !== c.endDate) c.endedBy = ''; // the provider changed the last day, so it is no longer "stopped by customer"
+  Object.assign(c, fields);
   store.save();
   return c;
 });
@@ -467,7 +498,6 @@ const findListing = (lid) => {
   for (const [tid, t] of Object.entries(db.tenants)) if (t.listing.id === lid && M.isListed(t)) return { tid, t };
   throw bad('This listing is not available', 404);
 };
-const seenClicks = new Map(); // "ip|lid|type" -> time, so one person cannot inflate counts
 
 route('GET', '/api/market/search', null, async ({ query, ip }) => {
   if (searchLimiter.blocked(ip)) throw bad('Too many searches. Please wait a minute.', 429);
@@ -496,20 +526,6 @@ route('GET', '/api/market/search', null, async ({ query, ip }) => {
   }
   if (found.length) store.save();
   return { mode: origin ? 'distance' : 'pincode', label, pin, results: found.map(M.card) };
-});
-
-route('POST', '/api/market/:lid/click', null, ({ params, body, ip }) => {
-  const { tid } = findListing(params.lid);
-  const type = ['call', 'whatsapp', 'view'].includes(body.type) ? body.type : null;
-  if (!type) throw bad('Invalid click');
-  const key = `${ip}|${params.lid}|${type}`;
-  if (Date.now() - (seenClicks.get(key) || 0) > 3600e3) {
-    if (seenClicks.size > 10000) seenClicks.clear();
-    seenClicks.set(key, Date.now());
-    M.track(db, tid, type);
-    store.save();
-  }
-  return { ok: true };
 });
 
 route('POST', '/api/market/:lid/enquire', null, ({ params, body, ip }) => {
@@ -582,8 +598,7 @@ route('GET', '/api/enquiries', 'provider', ({ t }) => ({ enquiries: t.enquiries.
 
 route('POST', '/api/enquiries/:id/accept', 'provider', ({ t, params }) => {
   const e = orNotFound(t.enquiries.find((x) => x.id === params.id && x.status === 'new'), 'Enquiry not found');
-  const c = { id: newId(), token: crypto.randomBytes(12).toString('base64url'), ...cleanCustomer({ name: e.name, phone: e.phone, address: e.address, type: e.type, note: e.note }), leaves: [] };
-  t.customers.push(c);
+  const c = addCustomer(t, cleanCustomer({ name: e.name, phone: e.phone, address: e.address, type: e.type, note: e.note }));
   e.status = 'added';
   store.save();
   return c;
@@ -726,13 +741,57 @@ route('POST', '/api/my/telegram/unlink', 'customer', ({ user }) => {
 // what the bot answers a connected customer who sends /status
 const STATUS_TEXT = { delivered: 'Delivered today ✅', pending: 'Being prepared 🍱', leave: 'On leave today 🏖', none: 'No tiffin today 🌴' };
 tg.customerStatus = (user) => {
-  const subs = subscriptionsFor(user);
-  if (!subs.length) return 'No tiffin service is linked to your number right now.';
+  const subs = subscriptionsFor(user).filter(({ c }) => !isEnded(c));
+  if (!subs.length) return 'No active tiffin service is linked to your number right now.';
   return subs.map(({ t, c }) => `<b>${esc(t.settings.businessName)}</b>: ${STATUS_TEXT[customerView(t, c).status]}`).join('\n');
 };
 
 const mySub = (user, params) =>
   orNotFound(subscriptionsFor(user).find((s) => s.tid === params.tid && s.c.id === params.cid), 'Subscription not found');
+
+route('POST', '/api/my/leaves', 'customer', ({ user, body }) => {
+  const subs = subscriptionsFor(user).filter(({ c }) => !isEnded(c) && (!c.endDate || c.endDate >= body.from));
+  if (!subs.length) throw bad('You have no active tiffin service to mark leave for.');
+  const skipped = [];
+  let applied = 0;
+  for (const { t, c } of subs) {
+    try {
+      customerAddLeave(t, c, body);
+      applied++;
+    } catch (e) {
+      if (!(e instanceof HttpError)) throw e;
+      skipped.push({ name: t.settings.businessName, error: e.message }); // e.g. that provider's cut-off time has passed
+    }
+  }
+  if (!applied) throw bad(skipped.map((x) => `${x.name}: ${x.error}`).join(' '));
+  return { applied, skipped, subscriptions: subscriptionsFor(user).map(({ tid, t, c }) => ({ tid, cid: c.id, ...customerView(t, c) })) };
+});
+
+route('POST', '/api/my/:tid/:cid/stop', 'customer', ({ user, params, body }) => {
+  const { t, c } = mySub(user, params);
+  if (isEnded(c)) throw bad('This tiffin service has already ended.');
+  const min = L.addDays(L.leaveMinDate(t), -1);
+  const last = L.isDate(body.lastDay) ? body.lastDay : min;
+  if (last < min) throw bad(`The last tiffin day can be ${L.fmtDate(min)} or later.`);
+  if (last > L.addDays(L.todayStr(), 120)) throw bad('Please choose a last day within the next 4 months.');
+  c.endDate = last;
+  c.endedBy = 'customer';
+  c.endedAt = Date.now();
+  store.save();
+  tg.notify(t, `👋 <b>${esc(c.name)}</b> is stopping their tiffin. Last tiffin day: <b>${L.fmtDate(last)}</b>.`);
+  return { tid: params.tid, cid: c.id, ...customerView(t, c) };
+});
+
+route('POST', '/api/my/:tid/:cid/resume', 'customer', ({ user, params }) => {
+  const { t, c } = mySub(user, params);
+  if (c.endedBy !== 'customer' || !c.endDate) throw bad('There is nothing to undo here.');
+  if (isEnded(c)) throw bad('This service has already ended. Use “Find a tiffin service” to join again.');
+  c.endDate = '';
+  c.endedBy = '';
+  store.save();
+  tg.notify(t, `↩️ <b>${esc(c.name)}</b> changed their mind and is continuing their tiffin.`);
+  return { tid: params.tid, cid: c.id, ...customerView(t, c) };
+});
 
 route('POST', '/api/my/:tid/:cid/leaves', 'customer', ({ user, params, body }) => {
   const { t, c } = mySub(user, params);

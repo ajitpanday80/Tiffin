@@ -28,18 +28,10 @@ const post = (url, body, keepalive) => fetch(url, { method: 'POST', headers: { '
 let lastQuery = '';
 let me = null;
 
-function waLink(r) {
-  let p = r.phone.replace(/[^\d+]/g, '');
-  p = p.startsWith('+') ? p.slice(1) : p.replace(/^0+/, '');
-  if (p.length <= 10) p = r.countryCode + p;
-  return `https://wa.me/${p}?text=${encodeURIComponent(`Hi ${r.name}, I found you on MyTiffin. Do you deliver to my area?`)}`;
-}
-
 function resultCard(r) {
-  const click = (type) => post(`/api/market/${r.id}/click`, { type }, true).catch(() => {});
   const price = [r.priceFrom.normal && `Normal ${r.priceFrom.currency}${r.priceFrom.normal}`, r.priceFrom.deluxe && `✨ Deluxe ${r.priceFrom.currency}${r.priceFrom.deluxe}`].filter(Boolean).join(' · ');
   const about = r.about ? h('p', { hidden: true, class: 'muted' }, r.about) : null;
-  const more = about && h('button', { class: 'more-btn', type: 'button', onclick: (e) => { about.hidden = !about.hidden; e.currentTarget.textContent = about.hidden ? 'About ▾' : 'Hide ▴'; if (!about.hidden) click('view'); } }, 'About ▾');
+  const more = about && h('button', { class: 'more-btn', type: 'button', onclick: (e) => { about.hidden = !about.hidden; e.currentTarget.textContent = about.hidden ? 'About ▾' : 'Hide ▴'; } }, 'About ▾');
   return h('article', { class: `rcard${r.sponsored ? ' sp' : ''}` },
     r.sponsored && h('span', { class: 'spon' }, 'Sponsored'),
     h('h3', {}, r.name),
@@ -54,8 +46,7 @@ function resultCard(r) {
     more, about,
     h('div', { class: 'ractions' },
       h('button', { class: 'btn primary', type: 'button', onclick: () => openEnquiry(r) }, 'Request to join'),
-      r.phone && h('a', { class: 'btn', href: waLink(r), target: '_blank', rel: 'noopener', onclick: () => click('whatsapp') }, 'WhatsApp'),
-      r.phone && h('a', { class: 'btn', href: `tel:${r.phone}`, onclick: () => click('call') }, '📞 Call')));
+      r.phone && h('a', { class: 'btn', href: `tel:${r.phone}` }, '📞 Call')));
 }
 
 function show(data, q) {

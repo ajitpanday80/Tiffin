@@ -65,14 +65,15 @@ async function act(fn, okMsg) {
 }
 
 // ---------- phone / link helpers ----------
-function waNumber(phone) {
-  let p = (phone || '').replace(/[^\d+]/g, '');
-  if (!p) return '';
-  if (p.startsWith('+')) return p.slice(1);
-  p = p.replace(/^0+/, '');
-  return p.length <= 10 ? S.settings.countryCode + p : p;
+// Sharing goes through Telegram only (or copy and paste).
+const tgShare = (text, url) => `https://t.me/share/url?url=${encodeURIComponent(url || location.origin)}&text=${encodeURIComponent(text)}`;
+async function copyText(text, done = 'Copied') {
+  try { await navigator.clipboard.writeText(text); toast(done); } catch { prompt('Copy this', text); }
 }
-const waLink = (phone, text) => `https://wa.me/${waNumber(phone)}?text=${encodeURIComponent(text)}`;
+// two buttons: share the message on Telegram, or copy it
+const shareRow = ({ text, url, copy }) => h('div', { class: 'grid2' },
+  h('a', { class: 'btn ok sm', href: tgShare(text, url), target: '_blank', rel: 'noopener' }, '✈️ Telegram'),
+  h('button', { class: 'btn sm', type: 'button', onclick: () => copyText(copy ?? (url ? `${text} ${url}` : text), 'Copied') }, 'Copy'));
 const custLink = (c) => `${location.origin}/c/${c.token}`;
 const mapLink = (a) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(a)}`;
 const money = (n) => S.settings.currency + Number(n).toLocaleString('en-IN');
@@ -238,7 +239,8 @@ async function loadCustomers() {
 }
 
 function leaveStatus(c) {
-  if (c.endDate && c.endDate < S.today) return h('span', { class: 'badge off' }, 'Stopped');
+  if (c.endDate && c.endDate < S.today) return h('span', { class: 'badge off' }, c.endedBy === 'customer' ? 'Stopped by customer' : 'Stopped');
+  if (c.endDate) return h('span', { class: 'badge off' }, `${c.endedBy === 'customer' ? 'Customer stops' : 'Ends'} after ${fmtS(c.endDate)}`);
   const now = c.leaves.find((l) => l.from <= S.today && S.today <= l.to);
   if (now) return h('span', { class: 'badge leave' }, `🏖 On leave till ${fmtS(now.to)}`);
   const next = c.leaves.filter((l) => l.from > S.today).sort((a, b) => a.from.localeCompare(b.from))[0];
@@ -322,16 +324,14 @@ function openCustomer(existing) {
     const leaveBox = h('div', { class: 'card stack' });
     drawLeaves(leaveBox, c);
     const link = custLink(existing);
-    const msg = `Hi ${existing.name}, if you need to skip tiffin on any day, please mark your leave here: ${link}`;
+    const msg = `Hi ${existing.name}, if you need to skip tiffin on any day, please mark your leave here:`;
     parts.push(
       leaveBox,
       h('div', { class: 'card stack' },
         h('h2', {}, 'Customer’s own leave link'),
         h('p', { class: 'help' }, 'Send this once. The customer can mark their own leave days, and you get a Telegram alert.'),
         existing.phone && h('p', { class: 'help' }, existing.hasAccount ? '✓ Has a login (phone + password).' : `They can also create a login at ${location.origin}/signup using ${existing.phone}.`),
-        h('div', { class: 'grid2' },
-          existing.phone ? h('a', { class: 'btn ok sm', href: waLink(existing.phone, msg), target: '_blank', rel: 'noopener' }, 'WhatsApp') : h('a', { class: 'btn ok sm', href: `https://wa.me/?text=${encodeURIComponent(msg)}`, target: '_blank', rel: 'noopener' }, 'WhatsApp'),
-          h('button', { class: 'btn sm', onclick: async () => { try { await navigator.clipboard.writeText(link); toast('Link copied'); } catch { prompt('Copy this link', link); } } }, 'Copy link'))),
+        shareRow({ text: msg, url: link, copy: link })),
       existing.hasAccount && resetCard(existing),
       h('button', { class: 'btn danger', onclick: async () => {
         if (!confirm(`Delete ${existing.name} permanently? Their delivery history will be removed too.\n\nTip: use “Last day” under More options to just stop service.`)) return;
@@ -350,9 +350,7 @@ function resetCard(c) {
     res
       ? h('div', { class: 'stack' },
           h('input', { type: 'text', readOnly: true, value: res.link, onclick: (e) => e.target.select() }),
-          h('div', { class: 'grid2' },
-            h('a', { class: 'btn ok sm', href: waLink(c.phone, `Hi ${c.name}, use this link to set a new MyTiffin password: ${res.link}`), target: '_blank', rel: 'noopener' }, 'WhatsApp'),
-            h('button', { class: 'btn sm', onclick: async () => { try { await navigator.clipboard.writeText(res.link); toast('Link copied'); } catch { prompt('Copy this link', res.link); } } }, 'Copy link')))
+          shareRow({ text: `Hi ${c.name}, use this link to set a new MyTiffin password:`, url: res.link, copy: res.link }))
       : h('button', { class: 'btn', onclick: async (e) => { e.currentTarget.disabled = true; const r = await act(() => api('POST', `/api/customers/${c.id}/reset-link`)); if (r) draw(r); else e.currentTarget.disabled = false; } }, 'Create reset link'));
   draw(null);
   return box;
@@ -414,7 +412,7 @@ function renderReport() {
     r.customers.length ? r.customers.map((c) => h('article', { class: 'card rep' },
       h('div', { class: 'rep-head' }, h('div', { class: 'row-title' }, h('strong', {}, c.name), typeBadge(c)), priced && h('b', {}, money(c.amount))),
       h('div', { class: 'rep-nums' }, h('div', {}, h('b', {}, c.delivered), h('span', {}, 'Delivered')), h('div', {}, h('b', {}, c.leave), h('span', {}, 'On leave')), h('div', { class: c.missed ? 'miss' : '' }, h('b', {}, c.missed), h('span', {}, 'Missed'))),
-      c.phone && h('a', { class: 'btn sm', target: '_blank', rel: 'noopener', href: waLink(c.phone, `Hi ${c.name}, tiffin summary for ${monthName(r.month)}: ${c.delivered} days delivered${c.leave ? `, ${c.leave} days leave` : ''}${priced ? `. Amount: ${money(c.amount)}` : ''}. Thank you! – ${S.settings.businessName}`) }, '💬 Send summary on WhatsApp')))
+      shareRow({ text: `Hi ${c.name}, tiffin summary for ${monthName(r.month)}: ${c.delivered} days delivered${c.leave ? `, ${c.leave} days leave` : ''}${priced ? `. Amount: ${money(c.amount)}` : ''}. Thank you! – ${S.settings.businessName}`, copy: `Hi ${c.name}, tiffin summary for ${monthName(r.month)}: ${c.delivered} days delivered${c.leave ? `, ${c.leave} days leave` : ''}${priced ? `. Amount: ${money(c.amount)}` : ''}. Thank you! – ${S.settings.businessName}` })))
       : h('div', { class: 'card empty' }, h('div', { class: 'big' }, '📊'), h('p', { class: 'muted' }, 'No deliveries recorded this month yet.')),
     r.customers.length > 0 && h('button', { class: 'btn', onclick: csv }, '⬇ Download as spreadsheet (CSV)'),
     r.customers.length > 0 && priced && h('p', { class: 'help' }, 'Amounts use your current prices from Settings.'));
@@ -433,7 +431,6 @@ function renderSettings() {
     normal: h('input', { type: 'number', value: s.prices.normal, min: 0, inputMode: 'numeric' }),
     deluxe: h('input', { type: 'number', value: s.prices.deluxe, min: 0, inputMode: 'numeric' }),
     currency: h('input', { type: 'text', value: s.currency, maxLength: 4 }),
-    countryCode: h('input', { type: 'tel', value: s.countryCode, maxLength: 4, inputMode: 'numeric' }),
     morningTime: h('input', { type: 'time', value: s.morningTime }),
     eveningTime: h('input', { type: 'time', value: s.eveningTime }),
     cutoffHour: h('select', {}, [[0, 'Not allowed — from tomorrow only']].concat([6, 7, 8, 9, 10, 11, 12].map((n) => [n, `Until ${n > 12 ? n - 12 : n}:00 ${n >= 12 ? 'pm' : 'am'}`])).map(([v, l]) => h('option', { value: v, selected: v === s.cutoffHour }, l))),
@@ -452,12 +449,12 @@ function renderSettings() {
         h('div', { class: 'grid2' }, h('label', { class: 'field' }, 'Morning summary', f.morningTime), h('label', { class: 'field' }, 'Evening: tomorrow', f.eveningTime)),
         h('p', { class: 'help' }, 'You also get an instant alert whenever a customer marks leave. Clear a time to turn that summary off. Connected Telegram also lets you reset a forgotten password. ', h('a', { href: '/help#telegram', target: '_blank', rel: 'noopener' }, 'Full Telegram guide')));
 
-  return h('form', {
+  const form = h('form', {
     class: 'stack', onsubmit: async (e) => {
       e.preventDefault();
       save.disabled = true;
       const r = await act(() => api('PUT', '/api/settings', {
-        businessName: f.businessName.value, businessPhone: f.businessPhone.value, currency: f.currency.value, countryCode: f.countryCode.value,
+        businessName: f.businessName.value, businessPhone: f.businessPhone.value, currency: f.currency.value,
         prices: { normal: f.normal.value, deluxe: f.deluxe.value }, closedDays: closed.map((l) => l.firstChild).filter((i) => i.checked).map((i) => Number(i.value)),
         cutoffHour: f.cutoffHour.value, morningTime: f.morningTime.value, eveningTime: f.eveningTime.value,
       }), 'Settings saved ✓');
@@ -469,14 +466,17 @@ function renderSettings() {
       h('label', { class: 'field' }, 'Business name', f.businessName), h('label', { class: 'field' }, 'Your phone', f.businessPhone)),
     h('div', { class: 'card stack' }, h('h2', {}, 'Price per box'),
       h('div', { class: 'grid2' }, h('label', { class: 'field' }, 'Normal', f.normal), h('label', { class: 'field' }, '✨ Deluxe', f.deluxe)),
-      h('div', { class: 'grid2' }, h('label', { class: 'field' }, 'Currency', f.currency), h('label', { class: 'field' }, 'Country code', f.countryCode)),
-      h('p', { class: 'help' }, 'Used for monthly amounts. Leave 0 if you do not want amounts shown. Country code is used to open WhatsApp.')),
+      h('label', { class: 'field' }, 'Currency symbol', f.currency),
+      h('p', { class: 'help' }, 'Used for monthly amounts. Leave 0 if you do not want amounts shown.')),
     h('div', { class: 'card stack' }, h('h2', {}, 'Days you are closed'), h('div', { class: 'days' }, closed), h('p', { class: 'help' }, 'No tiffin is counted on these days (for example Sunday).')),
     h('div', { class: 'card stack' }, h('h2', {}, 'Customer leave'),
       h('label', { class: 'field' }, 'Customers can cancel today’s tiffin', f.cutoffHour),
       h('p', { class: 'help' }, 'Customers can always mark leave from tomorrow onwards using their personal link.')),
     h('div', { class: 'card stack' }, h('h2', {}, '✈️ Telegram alerts'), tgBlock),
-    save,
+    save);
+  // The change-password box and the other buttons live OUTSIDE the settings form: its fields are required and
+  // empty, which made the browser silently refuse to submit "Save settings".
+  return h('div', { class: 'stack' }, form,
     passwordCard(),
     h('a', { class: 'btn', href: '/help', target: '_blank', rel: 'noopener' }, '📖 Help and guides'),
     h('button', { type: 'button', class: 'btn', onclick: async () => { await act(() => api('POST', '/api/logout')); location.href = '/'; } }, 'Log out'));

@@ -2,12 +2,12 @@
 
 ## Promo videos
 
-Two videos, each in vertical (1080×1920, for Reels / Shorts / WhatsApp status) and landscape (1920×1080, for YouTube / the website):
+Two videos, each in vertical (1080×1920, for Reels / Shorts / Telegram stories) and landscape (1920×1080, for YouTube / the website):
 
 | Video | Length | Story |
 | --- | --- | --- |
 | `provider` | ~40 s | Cooked for someone not home → today's box count → tap Delivered → customers mark their own leave + Telegram alert → month-end report → get found nearby → *Free for tiffin providers* |
-| `customer` | ~34 s | Going out of town → mark leave in 10 s → provider told instantly → find a tiffin near you → call / WhatsApp / join → *Free for customers* |
+| `customer` | ~34 s | Going out of town → mark leave in 10 s → provider told instantly → find a tiffin near you → call / join → *Free for customers* |
 
 Everything on the phone screens is the **real app** (captured from a seeded demo kitchen), not mockups. The Telegram message uses the real bot text and the real box counts from that demo data. Names, addresses and prices in the demo are made up.
 

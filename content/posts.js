@@ -178,7 +178,7 @@ At month end, send each customer a short message with the same four lines:
 - Rate per box
 - Total
 
-MyTiffin's **Reports** screen has this ready. For each customer there is a button to send the summary on WhatsApp, and you can download the full month as a spreadsheet if you want to keep your own books.
+MyTiffin's **Reports** screen has this ready. For each customer there is a button to share the summary on Telegram, and you can download the full month as a spreadsheet if you want to keep your own books.
 
 ## Handle the dispute without drama
 
@@ -289,10 +289,10 @@ If one extra customer who stays a few months more than covers the cost of the ad
 
 Do not commit big. Choose the shortest plan, and before it starts, write down:
 
-- how many join requests and calls you normally get in a month,
+- how many join requests you normally get in a month (and how many new customers you add),
 - how many customers you have.
 
-The Grow screen shows how many times you were shown, how many calls and WhatsApp taps you got, and how many join requests came in. After the ad ends, compare. If the numbers barely moved, you have learned something cheaply.
+The Grow screen shows how many times your listing appeared in search results, how many of those were as a Sponsored result, and how many join requests customers sent you. It does not count phone calls, because there is no way to know whether a call really happened, so ask new customers how they found you. After the ad ends, compare. If the numbers barely moved, you have learned something cheaply.
 
 ## Make the ad work
 

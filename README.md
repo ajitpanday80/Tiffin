@@ -2,10 +2,10 @@
 
 A light, mobile-first web app for tiffin providers.
 
-- **Provider app** (`/app`): customers (name, address, phone, Normal/Deluxe, boxes per day), a daily "how many to cook" count, one-tap *Delivered* checklist, leave management, monthly reports (CSV + WhatsApp summary).
+- **Provider app** (`/app`): customers (name, address, phone, Normal/Deluxe, boxes per day), a daily "how many to cook" count, one-tap *Delivered* checklist, leave management, monthly reports (CSV + a summary to share on Telegram).
 - **Customer portal** (`/me`): customers log in with their phone number + password and mark their own leave. A personal passwordless link (`/c/<token>`) also works.
 - **Telegram bot**: instant alert when a customer takes or cancels leave, plus morning/evening summaries and `/today`, `/tomorrow`, `/pending`.
-- **Marketplace** (`/find`): customers find tiffin services nearest-first by GPS, pincode or address, then call, WhatsApp or send a *request to join* that lands in the provider's inbox (one tap to add as a customer).
+- **Marketplace** (`/find`): customers find tiffin services nearest-first by GPS, pincode or address, then call or send a *request to join* that lands in the provider's inbox (one tap to add as a customer).
 - **Advertising**: listing is free; providers can pay for a *Sponsored* spot that only shows to customers near them. Platform admin console at `/admin`.
 - **Website** (`/`) with login / sign-up (`/login`, `/signup`), a **help guide** (`/help`: provider quick start, Telegram setup, customer guide) and a **blog** (`/blog`, 8 posts in `content/posts.js`, server-rendered, with `/sitemap.xml` and `/robots.txt`).
 - Phone + password accounts, sessions last **30 days** (sliding). Many providers can share one install; each only sees their own data.
@@ -49,7 +49,7 @@ One bot serves all providers; the code ties a chat to one provider.
 
 **Search.** A customer can use GPS, or type a pincode / address. Typed places are geocoded (OpenStreetMap Nominatim, cached in the database, throttled to 1 request/second). If the geocoder is down or off, search falls back to providers who list that exact pincode, or a nearby one (same first 3 digits), without distances. A provider appears only if the customer is inside its delivery radius (1-25 km) or it lists the customer's pincode.
 
-**Ads are local by construction.** An ad gives a provider a *Sponsored* slot (max 2 per search, nearest advertisers first) only when the customer is within **both** the provider's delivery radius **and** the ad radius of the plan it bought. In pincode-only mode an ad needs an exact pincode match. Nobody far away is ever shown an ad. Ads are flat-fee per plan (no per-click billing); impressions, call/WhatsApp taps and join requests are counted per provider and shown to them.
+**Ads are local by construction.** An ad gives a provider a *Sponsored* slot (max 2 per search, nearest advertisers first) only when the customer is within **both** the provider's delivery radius **and** the ad radius of the plan it bought. In pincode-only mode an ad needs an exact pincode match. Nobody far away is ever shown an ad. Ads are flat-fee per plan (no per-click billing); only what the app can really observe is counted and shown to each provider: times the listing appeared in search results, times it appeared as Sponsored, and join requests received (phone calls are not counted, since there is no way to know whether a call happened).
 
 **Plans and payment.** There is no payment gateway in this app, so I did not invent prices: you create the plans (name, days, radius, price) in `/admin`. A provider orders a plan, gets your payment instructions plus a reference code, pays you outside the app, and you press *Payment received*, which starts the ad (queued after any ad already running). Integrating a gateway (e.g. Razorpay/Stripe) needs your merchant credentials and is the natural next step.
 
@@ -95,13 +95,14 @@ Any host that runs Node with a persistent disk works (a small VPS, Fly.io volume
 
 - A provider signs up with phone + password + service name.
 - A **customer can only sign up with a phone number a provider already saved** for them (last 10 digits are compared). They then see every provider who has that number.
+- **Several providers, same number:** each provider can hold a given phone number once (ended customers free it). A customer login sees every provider that has the number, can mark leave per provider or for all at once, and can stop (and undo stopping) with any single provider; that provider is told on Telegram. Nobody is locked to one provider.
 - **Known weakness:** whoever knows a customer's number can create the account *before* the real customer does, and could then mark leave for them. Impact is limited to leave days (no payments or addresses are exposed), and providers can see leave changes, but it is real. The personal `/c/<token>` link avoids this since the secret is sent only to the customer.
 - **Password recovery** (there is no SMS/email integration, so it relies on channels we already have):
   - *Providers:* "Forgot password?" sends a 6-digit code to the Telegram chat they connected in Settings (valid 10 minutes, 5 tries, rate limited). The answer is the same whether or not the number exists. Providers without Telegram connected cannot use this, so tell them to connect it.
-  - *Customers, same bot:* on the **My tiffin** page a customer can connect their own Telegram (their own code, shown only while logged in) and then use the same "Forgot password?" flow. The connected bot also answers `/status` with today's tiffin. Customers without Telegram: their provider opens the customer and taps **Create reset link**, then sends the one-time link (24 h) on WhatsApp. That is allowed only when that login belongs to that provider alone, so a provider can never take over an account that also covers other providers.
+  - *Customers, same bot:* on the **My tiffin** page a customer can connect their own Telegram (their own code, shown only while logged in) and then use the same "Forgot password?" flow. The connected bot also answers `/status` with today's tiffin. Customers without Telegram: their provider opens the customer and taps **Create reset link**, then shares the one-time link (24 h) on Telegram or copies it. That is allowed only when that login belongs to that provider alone, so a provider can never take over an account that also covers other providers.
   - *Anyone, fallback:* the administrator creates a one-time link (1 h) under **Admin → Reset login** after checking the person's identity by hand, and can publish a support contact (**Admin → Payment & support**) that is shown on the forgot-password page.
   - Last resort on the server: `node scripts/reset-password.js <provider|customer> <phone> <new-password>`.
-  - Every reset signs the account out everywhere. Reset links and codes are single use. Adding SMS/WhatsApp OTP later needs a provider account (e.g. Twilio, MSG91) and is the natural next step for customers.
+  - Every reset signs the account out everywhere. Reset links and codes are single use. Adding SMS OTP later needs a provider account (e.g. Twilio, MSG91) and is the natural next step for customers.
   `node scripts/reset-password.js provider 9811100001 newpassword`
 - Failed logins are rate-limited per phone and per IP (this also means someone can temporarily lock a number out).
 
@@ -123,9 +124,13 @@ node promo/build-assets.cjs && node brand/og.cjs   # the 1200x630 social-share i
 
 Add an object to `content/posts.js` (slug, title, description, audience `providers`|`customers`, emoji, date, body). The body supports `##`/`###` headings, lists, `> quotes`, `**bold**`, `` `code` `` and `[links](/path)`. Restart the server to publish. Keep claims honest: the existing posts use no invented statistics, and example prices are labelled as examples.
 
+## Browser tests
+
+`UI_TESTS=1 npm test` runs `test/ui.test.js` (needs Playwright + Chromium): every page and role at phone, tablet, laptop and desktop widths, checking for horizontal scroll, broken images, small tap targets, console errors, and that Settings saves. Skipped by default.
+
 ## Good to know / not built
 
 - No moderation beyond admin suspend, no reviews/ratings, no provider verification.
 - Single language (English); one meal per day (no separate lunch/dinner); prices are per box by type, not per customer; amounts in reports use *current* prices.
 - Scale: one process and one JSON file. Fine for dozens of providers and hundreds of customers; not for much more.
-- Default timezone is `Asia/Kolkata` and phone matching/WhatsApp links assume 10-digit numbers with a configurable country code (default `91`). Change both if you are elsewhere.
+- Default timezone is `Asia/Kolkata`, and phone numbers are matched on their last 10 digits (so a number with or without country code is the same person). Set `TZ` and `COUNTRY` for where you are.

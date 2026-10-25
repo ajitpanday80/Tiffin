@@ -64,7 +64,7 @@ function providersView() {
   return data.listings.map((l) => h('div', { class: 'card stack' },
     h('div', { class: 'rowline' }, h('b', {}, l.name), h('span', { class: `st ${l.suspended ? 'rejected' : l.enabled ? 'paid' : 'pending'}` }, l.suspended ? 'suspended' : l.enabled ? 'listed' : 'not listed')),
     h('div', { class: 'muted' }, `${[l.area, l.city, l.pincode].filter(Boolean).join(', ') || 'No area'} · ${l.customers} customers${l.phone ? ` · ${l.phone}` : ''}${l.located ? '' : ' · no location'}`),
-    h('div', { class: 'muted' }, `30 days: shown ${l.stats.imp}, calls/WhatsApp ${l.stats.call + l.stats.whatsapp}, requests ${l.stats.enquiry}${l.adUntil ? ` · ad until ${date(l.adUntil)}` : ''}`),
+    h('div', { class: 'muted' }, `30 days: shown ${l.stats.imp}, sponsored ${l.stats.spImp}, join requests ${l.stats.enquiry}${l.adUntil ? ` · ad until ${date(l.adUntil)}` : ''}`),
     h('button', { class: `btn sm ${l.suspended ? '' : 'danger'}`, onclick: () => act(() => api('POST', `/api/admin/listings/${l.tid}/suspend`, { suspended: !l.suspended }), l.suspended ? 'Restored' : 'Suspended') }, l.suspended ? 'Restore listing' : 'Suspend listing')));
 }
 
@@ -81,14 +81,14 @@ function resetView() {
         h('button', { class: 'btn sm', type: 'button', onclick: async () => { try { await navigator.clipboard.writeText(r.link); toast('Copied'); } catch { link.select(); } } }, 'Copy link'));
     } catch (err) { out.replaceChildren(); if (err.message !== 'login') toast(err.message, true); }
   } },
-  h('h2', {}, 'Reset a login'), h('p', { class: 'help' }, 'Make sure you are really talking to the account owner first (a call or a WhatsApp chat from the number on the account).'),
+  h('h2', {}, 'Reset a login'), h('p', { class: 'help' }, 'Make sure you are really talking to the account owner first (a phone call, or a Telegram chat from the number on the account).'),
   h('label', { class: 'field' }, 'Account type', role), h('label', { class: 'field' }, 'Phone', phone), h('button', { class: 'btn primary', type: 'submit' }, 'Create reset link'), out);
 }
 
 function settingsView() {
   const pay = h('textarea', { rows: 4, maxLength: 500, placeholder: 'e.g. Pay by UPI to yourname@bank, then we activate your ad within a day.' }, data.payInstructions);
   const cur = h('input', { type: 'text', value: data.currency, maxLength: 4 });
-  const sup = h('textarea', { rows: 2, maxLength: 300, id: 'support', placeholder: 'e.g. WhatsApp +91 98xxxxxx or help@mytiffin.online' }, data.support || '');
+  const sup = h('textarea', { rows: 2, maxLength: 300, id: 'support', placeholder: 'e.g. Telegram @yourhandle or phone +91 98xxxxxx' }, data.support || '');
   return h('form', { class: 'card stack', onsubmit: (e) => { e.preventDefault(); act(() => api('PUT', '/api/admin/platform', { payInstructions: pay.value, currency: cur.value, support: sup.value }), 'Saved'); } },
     h('h2', {}, 'Payment'), h('p', { class: 'help' }, 'Shown to a provider when they order an ad. Payments are collected outside the app; you confirm them under Orders.'),
     h('label', { class: 'field' }, 'How to pay', pay), h('label', { class: 'field' }, 'Currency symbol', cur),

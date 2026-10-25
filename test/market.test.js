@@ -117,19 +117,17 @@ test('ads only show to customers near the advertiser', async () => {
   assert.equal((await search({ q: '411045' })).results[0].sponsored, true);
 });
 
-test('stats, clicks and suspension', async () => {
+test('stats only count what the app can observe; suspension hides a listing', async () => {
   const lid = (await call('GET', '/api/listing', null, B)).body.id;
-  assert.equal((await call('POST', `/api/market/${lid}/click`, { type: 'call' })).status, 200);
-  await call('POST', `/api/market/${lid}/click`, { type: 'call' }); // same person within the hour: not double counted
-  assert.equal((await call('POST', `/api/market/${lid}/click`, { type: 'hack' })).status, 400);
+  assert.equal((await call('POST', `/api/market/${lid}/click`, { type: 'call' })).status, 404); // there is no call/click tracking
   const st = (await call('GET', '/api/ads', null, B)).body.stats;
-  assert.equal(st.call, 1);
+  assert.deepEqual(Object.keys(st).sort(), ['enquiry', 'imp', 'spImp']); // shown, shown as sponsored, join requests
   assert.ok(st.imp > 0 && st.spImp > 0);
 
   const tid = (await call('GET', '/api/admin/overview', null, admin)).body.listings.find((l) => l.name === 'Kitchen B').tid;
   await call('POST', `/api/admin/listings/${tid}/suspend`, { suspended: true }, admin);
   assert.ok(!(await search({ lat: 18.561, lng: 73.78 })).results.some((x) => x.name === 'Kitchen B'));
-  assert.equal((await call('POST', `/api/market/${lid}/click`, { type: 'view' })).status, 404);
+  assert.equal((await call('POST', `/api/market/${lid}/enquire`, { name: 'Meera', phone: '9822200009' })).status, 404); // cannot be contacted while suspended
   await call('POST', `/api/admin/listings/${tid}/suspend`, { suspended: false }, admin);
 });
 

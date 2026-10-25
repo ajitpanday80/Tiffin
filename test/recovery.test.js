@@ -164,8 +164,8 @@ test('administrator can create a reset link for anyone and set a support contact
   const token = new URL(r.link).searchParams.get('token');
   assert.equal((await call('POST', '/api/reset-link', { token, password: 'by-admin-1' })).status, 200);
   assert.equal((await login('provider', '9811100050', 'by-admin-1')).status, 200);
-  await call('PUT', '/api/admin/platform', { payInstructions: '', support: 'WhatsApp +91 90000 00000' }, admin);
-  assert.equal((await call('GET', '/api/support')).body.support, 'WhatsApp +91 90000 00000');
+  await call('PUT', '/api/admin/platform', { payInstructions: '', support: 'Telegram @mytiffin_help' }, admin);
+  assert.equal((await call('GET', '/api/support')).body.support, 'Telegram @mytiffin_help');
 });
 
 test('customer leave reaches the provider on Telegram', async () => {
@@ -254,4 +254,26 @@ test('a provider code and a customer code never mix: each chat is only ever link
   say(901, '/today'); // and gives that chat no access to kitchen data
   await waitFor(() => /status/.test(lastTo(901)?.text || ''));
   assert.doesNotMatch(lastTo(901).text, /Prepare/);
+});
+
+test('Telegram tells a customer when a new provider adds them, and the provider when a customer stops or changes their mind', async () => {
+  const cust = (await login('customer', '9822200001', 'cust-reset-1')).cookie;
+  const code = (await call('GET', '/api/my', null, cust)).body.telegram.code;
+  say(903, `/start ${code}`);
+  await waitFor(() => /reset code will be sent here/.test(lastTo(903)?.text || ''));
+
+  const fresh = await signup('provider', '9811100060', { businessName: 'Fresh <b>New</b> Kitchen' });
+  await call('POST', '/api/customers', { name: 'Sunita', phone: '9822200001', type: 'deluxe' }, fresh);
+  await waitFor(() => /added you as a tiffin customer/.test(lastTo(903)?.text || ''));
+  assert.match(lastTo(903).text, /Fresh &lt;b&gt;New&lt;\/b&gt; Kitchen/); // provider-chosen text is escaped
+  assert.match(lastTo(903).text, /Stop with this provider/);
+
+  // the Annapurna provider (chat 777) hears when this customer stops and when they undo it
+  const subs = (await call('GET', '/api/my', null, cust)).body.subscriptions;
+  const annapurna = subs.find((s) => s.businessName === 'Annapurna Tiffins');
+  const last = L.addDays(L.todayStr(), 3);
+  assert.equal((await call('POST', `/api/my/${annapurna.tid}/${annapurna.cid}/stop`, { lastDay: last }, cust)).status, 200);
+  await waitFor(() => /Sunita Rao<\/b> is stopping their tiffin/.test(lastTo(777)?.text || ''));
+  assert.equal((await call('POST', `/api/my/${annapurna.tid}/${annapurna.cid}/resume`, {}, cust)).status, 200);
+  await waitFor(() => /Sunita Rao<\/b> changed their mind/.test(lastTo(777)?.text || ''));
 });

@@ -40,7 +40,7 @@ function enquiryCard(list) {
           ev.currentTarget.disabled = true;
           if (await act(() => api('POST', `/api/enquiries/${e.id}/accept`), `${e.name} added to your customers ✓`)) refresh(true); else ev.currentTarget.disabled = false;
         } }, 'Add as customer'),
-        h('a', { class: 'btn sm', href: waLink(e.phone, `Hi ${e.name}, this is ${S.settings.businessName}. Thanks for your request!`), target: '_blank', rel: 'noopener' }, 'WhatsApp'),
+        h('a', { class: 'btn sm', href: `tel:${e.phone}` }, '📞 Call'),
         h('button', { class: 'btn sm', onclick: async () => { if (await act(() => api('POST', `/api/enquiries/${e.id}/dismiss`))) refresh(true); } }, 'Dismiss')))));
 }
 
@@ -86,9 +86,9 @@ function listingCard(l) {
     },
   },
     h('h2', {}, '🔎 Your marketplace listing'),
-    h('p', { class: 'help' }, 'Listing is free. Customers near you can find you, call, WhatsApp or send a request to join.'),
+    h('p', { class: 'help' }, 'Listing is free. Customers near you can find you, call you or send a request to join.'),
     h('div', { class: 'tagpick' }, h('label', {}, on, h('span', {}, 'Show my kitchen in the marketplace'))),
-    !l.hasPhone && h('p', { class: 'note-area' }, 'Tip: add your phone in Settings so customers can call or WhatsApp you.'),
+    !l.hasPhone && h('p', { class: 'note-area' }, 'Tip: add your phone in Settings so customers can call you.'),
     h('label', { class: 'field' }, 'One-line description', tagline),
     h('div', { class: 'field' }, h('span', {}, 'Food type'), tagBox),
     h('div', { class: 'field' }, h('span', {}, 'Meals you serve'), mealBox),
@@ -109,9 +109,10 @@ function adsCard(ads, l) {
     h('h2', {}, '📣 Advertise (optional)'),
     h('p', { class: 'help' }, 'Your free listing shows to nearby customers. An ad adds a “Sponsored” spot at the top, only for customers close to you (within the radius of your plan). Never for people far away.'),
     h('div', { class: 'kpis' },
-      h('div', {}, h('b', {}, s.imp), h('span', {}, 'Times shown (30 days)')),
-      h('div', {}, h('b', {}, s.call + s.whatsapp), h('span', {}, 'Calls & WhatsApp')),
+      h('div', {}, h('b', {}, s.imp), h('span', {}, 'Shown in search (30 days)')),
+      h('div', {}, h('b', {}, s.spImp), h('span', {}, 'Shown as Sponsored')),
       h('div', {}, h('b', {}, s.enquiry), h('span', {}, 'Join requests'))),
+    h('p', { class: 'help' }, 'Counted when your listing appears in a customer’s search results, and when a customer sends you a join request. We cannot tell if someone phones you, so calls are not counted.'),
     ads.active && h('div', { class: 'live' }, `✅ Your ad is live until ${dateOnly(ads.active.endsAt)}. Customers within ${ads.active.radiusKm} km see you as Sponsored.`),
     !ads.canAdvertise && h('p', { class: 'note-area' }, 'To advertise, first switch on your listing above and set your location, then save.'),
     ads.canAdvertise && (ads.plans.length
