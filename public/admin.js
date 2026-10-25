@@ -68,18 +68,37 @@ function providersView() {
     h('button', { class: `btn sm ${l.suspended ? '' : 'danger'}`, onclick: () => act(() => api('POST', `/api/admin/listings/${l.tid}/suspend`, { suspended: !l.suspended }), l.suspended ? 'Restored' : 'Suspended') }, l.suspended ? 'Restore listing' : 'Suspend listing')));
 }
 
+function resetView() {
+  const role = h('select', { id: 'rrole' }, h('option', { value: 'provider' }, 'Tiffin provider'), h('option', { value: 'customer' }, 'Customer'));
+  const phone = h('input', { type: 'tel', id: 'rphone', placeholder: 'Their phone number', inputMode: 'tel' });
+  const out = h('div', { class: 'stack' });
+  return h('form', { class: 'card stack', onsubmit: async (e) => {
+    e.preventDefault();
+    try {
+      const r = await api('POST', '/api/admin/reset-link', { role: role.value, phone: phone.value });
+      const link = h('input', { type: 'text', readOnly: true, value: r.link, onclick: (ev) => ev.target.select() });
+      out.replaceChildren(h('p', { class: 'help' }, `One-time link for ${r.name} (${r.role}). It works once and expires in 1 hour. Send it only to that person.`), link,
+        h('button', { class: 'btn sm', type: 'button', onclick: async () => { try { await navigator.clipboard.writeText(r.link); toast('Copied'); } catch { link.select(); } } }, 'Copy link'));
+    } catch (err) { out.replaceChildren(); if (err.message !== 'login') toast(err.message, true); }
+  } },
+  h('h2', {}, 'Reset a login'), h('p', { class: 'help' }, 'Make sure you are really talking to the account owner first (a call or a WhatsApp chat from the number on the account).'),
+  h('label', { class: 'field' }, 'Account type', role), h('label', { class: 'field' }, 'Phone', phone), h('button', { class: 'btn primary', type: 'submit' }, 'Create reset link'), out);
+}
+
 function settingsView() {
   const pay = h('textarea', { rows: 4, maxLength: 500, placeholder: 'e.g. Pay by UPI to yourname@bank, then we activate your ad within a day.' }, data.payInstructions);
   const cur = h('input', { type: 'text', value: data.currency, maxLength: 4 });
-  return h('form', { class: 'card stack', onsubmit: (e) => { e.preventDefault(); act(() => api('PUT', '/api/admin/platform', { payInstructions: pay.value, currency: cur.value }), 'Saved'); } },
+  const sup = h('textarea', { rows: 2, maxLength: 300, id: 'support', placeholder: 'e.g. WhatsApp +91 98xxxxxx or help@mytiffin.online' }, data.support || '');
+  return h('form', { class: 'card stack', onsubmit: (e) => { e.preventDefault(); act(() => api('PUT', '/api/admin/platform', { payInstructions: pay.value, currency: cur.value, support: sup.value }), 'Saved'); } },
     h('h2', {}, 'Payment'), h('p', { class: 'help' }, 'Shown to a provider when they order an ad. Payments are collected outside the app; you confirm them under Orders.'),
-    h('label', { class: 'field' }, 'How to pay', pay), h('label', { class: 'field' }, 'Currency symbol', cur), h('button', { class: 'btn primary', type: 'submit' }, 'Save'));
+    h('label', { class: 'field' }, 'How to pay', pay), h('label', { class: 'field' }, 'Currency symbol', cur),
+    h('label', { class: 'field' }, 'Support contact (shown on the forgot-password page)', sup), h('button', { class: 'btn primary', type: 'submit' }, 'Save'));
 }
 
 function draw() {
   const pend = data.orders.filter((o) => o.status === 'pending').length;
-  const tabs = [['orders', `Orders${pend ? ` (${pend})` : ''}`], ['plans', 'Plans'], ['providers', 'Providers'], ['settings', 'Payment']];
-  const view = { orders: ordersView, plans: plansView, providers: providersView, settings: settingsView }[tab]();
+  const tabs = [['orders', `Orders${pend ? ` (${pend})` : ''}`], ['plans', 'Plans'], ['providers', 'Providers'], ['reset', 'Reset login'], ['settings', 'Payment & support']];
+  const view = { orders: ordersView, plans: plansView, providers: providersView, reset: resetView, settings: settingsView }[tab]();
   $('#root').replaceChildren(h('div', { class: 'seg' }, tabs.map(([id, l]) => h('button', { class: tab === id ? 'on' : '', onclick: () => { tab = id; draw(); } }, l))), ...[view].flat());
 }
 

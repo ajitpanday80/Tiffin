@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs / updates Tiffin Manager in /root/tiffin and runs it as a systemd service.
+# Installs / updates MyTiffin in /root/tiffin and runs it as a systemd service.
 # Run as root from a checkout of the repo:   sudo bash deploy/install.sh
 # Re-run it any time to deploy an update (your data and .env are never overwritten).
 set -euo pipefail

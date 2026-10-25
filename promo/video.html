@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Tiffin Manager promo</title>
+<title>MyTiffin promo</title>
 <style>
   :root { --brand: #e8590c; --brand2: #f59f00; --ink: #2a2016; --muted: #7c6b58; }
   * { box-sizing: border-box; margin: 0; }
@@ -56,7 +56,7 @@
 <body>
 <div id="canvas">
   <div class="blob" id="b1"></div><div class="blob" id="b2"></div>
-  <div id="brand"><img src="../public/icon.svg" alt=""><span>Tiffin Manager</span></div>
+  <div id="brand"><img src="../public/icon.svg" alt=""><span>MyTiffin</span></div>
   <div id="prog"></div>
   <div id="cap"><div class="step"></div><h1></h1><p></p></div>
   <div id="phone"><div id="screen"></div></div>
@@ -112,7 +112,7 @@ const center = (b) => [b[0] + b[2] / 2, b[1] + b[3] / 2];
 
 function defs() {
   const T = M.tomorrow;
-  const bubble = `<div class="hd">✈️ Telegram · Tiffin bot</div>
+  const bubble = `<div class="hd">✈️ Telegram · MyTiffin bot</div>
     <div class="ln">🏖 <b>Sunita Rao</b> (Deluxe) is on leave</div>
     <div class="ln">📅 ${fmtD(T.from)} → ${fmtD(T.to)} (${T.leaveDays} days)</div>
     <div class="ln" style="margin-top:14px">🍱 Tomorrow: <b>${T.after}</b> to prepare (Normal ${T.normal}, Deluxe ${T.deluxe})</div>`;
@@ -123,7 +123,7 @@ function defs() {
     const mid = (name) => center(B(name));
     return {
       dur: 96, progress: true,
-      hook: { a: 0, b: 3.6, em: '🍱', title: 'How to use Tiffin Manager', sub: 'For tiffin providers · 9 simple steps' },
+      hook: { a: 0, b: 3.6, em: '🍱', title: 'How to use MyTiffin', sub: 'For tiffin providers · 9 simple steps' },
       phone: [[3.2, 90.6]],
       caps: [
         [3.6, 12.6, 'Create your <em>account</em>', 'Service name, phone number and a password. You stay logged in for 30 days.', n(1)],
@@ -161,7 +161,7 @@ function defs() {
     const mid = (name) => center(B(name));
     return {
       dur: 64, progress: true,
-      hook: { a: 0, b: 3.6, em: '🍽️', title: 'How to use Tiffin Manager', sub: 'For customers · 5 simple steps' },
+      hook: { a: 0, b: 3.6, em: '🍽️', title: 'How to use MyTiffin', sub: 'For customers · 5 simple steps' },
       phone: [[3.2, 58.6]],
       caps: [
         [3.6, 15.0, 'Get your <em>login</em>', 'Use the phone number your provider saved. Or just open the personal link they send you.', n(1)],
@@ -224,7 +224,7 @@ function defs() {
       { src: 'find-start', a: 16.0, b: 19.8, cam: [[16.0, 390, 844, 1.0], [17.0, 390, 760, 1.06]], rings: [[17.2, 18.8, B('findSearch')]], tap: [[19.0, B('findSearch')[0] + B('findSearch')[2] - 110, B('findSearch')[1] + B('findSearch')[3] / 2]] },
       { src: 'find-results', a: 19.5, b: 29.2, cam: [[19.5, 390, 844, 1.0], [20.8, 390, 760, 1.06], [22.6, 390, 760, 1.06], [23.8, 390, 940, 1.06], [27.0, 390, 760, 1.06]], rings: [[24.4, 26.8, B('findActions')]], tap: [[27.6, ...center(B('findJoinBtn'))]] },
     ],
-    floats: [{ kind: 'bubble', html: bubble.replace('Telegram · Tiffin bot', 'Your provider’s Telegram'), a: 11.0, b: 16.2 }],
+    floats: [{ kind: 'bubble', html: bubble.replace('Telegram · MyTiffin bot', 'Your provider’s Telegram'), a: 11.0, b: 16.2 }],
     cta: { a: 29.1, b: 33.6, title: 'Free for<br>customers', sub: 'Find a tiffin near you at' },
   };
 }

@@ -332,6 +332,7 @@ function openCustomer(existing) {
         h('div', { class: 'grid2' },
           existing.phone ? h('a', { class: 'btn ok sm', href: waLink(existing.phone, msg), target: '_blank', rel: 'noopener' }, 'WhatsApp') : h('a', { class: 'btn ok sm', href: `https://wa.me/?text=${encodeURIComponent(msg)}`, target: '_blank', rel: 'noopener' }, 'WhatsApp'),
           h('button', { class: 'btn sm', onclick: async () => { try { await navigator.clipboard.writeText(link); toast('Link copied'); } catch { prompt('Copy this link', link); } } }, 'Copy link'))),
+      existing.hasAccount && resetCard(existing),
       h('button', { class: 'btn danger', onclick: async () => {
         if (!confirm(`Delete ${existing.name} permanently? Their delivery history will be removed too.\n\nTip: use “Last day” under More options to just stop service.`)) return;
         if (await act(() => api('DELETE', `/api/customers/${existing.id}`), 'Deleted')) { $('#sheet').close(); }
@@ -339,6 +340,22 @@ function openCustomer(existing) {
   }
   sheet(existing ? 'Edit customer' : 'New customer', ...parts);
   if (!existing) name.focus();
+}
+
+function resetCard(c) {
+  const box = h('div', { class: 'card stack' });
+  const draw = (res) => box.replaceChildren(
+    h('h2', {}, '🔑 Login password'),
+    h('p', { class: 'help' }, res ? `Send this one-time link to ${c.name}. It works once and expires in 24 hours.` : `If ${c.name} forgot their password, create a one-time link and send it to them.`),
+    res
+      ? h('div', { class: 'stack' },
+          h('input', { type: 'text', readOnly: true, value: res.link, onclick: (e) => e.target.select() }),
+          h('div', { class: 'grid2' },
+            h('a', { class: 'btn ok sm', href: waLink(c.phone, `Hi ${c.name}, use this link to set a new MyTiffin password: ${res.link}`), target: '_blank', rel: 'noopener' }, 'WhatsApp'),
+            h('button', { class: 'btn sm', onclick: async () => { try { await navigator.clipboard.writeText(res.link); toast('Link copied'); } catch { prompt('Copy this link', res.link); } } }, 'Copy link')))
+      : h('button', { class: 'btn', onclick: async (e) => { e.currentTarget.disabled = true; const r = await act(() => api('POST', `/api/customers/${c.id}/reset-link`)); if (r) draw(r); else e.currentTarget.disabled = false; } }, 'Create reset link'));
+  draw(null);
+  return box;
 }
 
 function drawLeaves(box, c) {
@@ -433,7 +450,7 @@ function renderSettings() {
           h('button', { type: 'button', class: 'btn sm', onclick: () => act(() => api('POST', '/api/telegram/test'), 'Test message sent') }, 'Send test'),
           h('button', { type: 'button', class: 'btn sm danger', onclick: async () => { if (confirm('Disconnect Telegram alerts?')) { S.settings = (await act(() => api('POST', '/api/telegram/unlink'))) || S.settings; refresh(); } } }, 'Disconnect')),
         h('div', { class: 'grid2' }, h('label', { class: 'field' }, 'Morning summary', f.morningTime), h('label', { class: 'field' }, 'Evening: tomorrow', f.eveningTime)),
-        h('p', { class: 'help' }, 'You also get an instant alert whenever a customer marks leave. Clear a time to turn that summary off. ', h('a', { href: '/help#telegram', target: '_blank', rel: 'noopener' }, 'Full Telegram guide')));
+        h('p', { class: 'help' }, 'You also get an instant alert whenever a customer marks leave. Clear a time to turn that summary off. Connected Telegram also lets you reset a forgotten password. ', h('a', { href: '/help#telegram', target: '_blank', rel: 'noopener' }, 'Full Telegram guide')));
 
   return h('form', {
     class: 'stack', onsubmit: async (e) => {

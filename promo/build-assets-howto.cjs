@@ -140,7 +140,7 @@ const CUSTOMERS = [
       .hd b{display:block;font-size:16px}.hd span{font-size:12px;opacity:.8}.chat{flex:1;padding:12px;display:flex;flex-direction:column;gap:8px;justify-content:flex-end}
       .m{max-width:82%;padding:8px 12px;border-radius:14px;white-space:pre-wrap;box-shadow:0 1px 1px rgba(0,0,0,.12)}.me{align-self:flex-end;background:#e1ffc7;border-bottom-right-radius:4px}.bot{align-self:flex-start;background:#fff;border-bottom-left-radius:4px}
       .sys{align-self:center;background:rgba(0,0,0,.18);color:#fff;border-radius:99px;padding:3px 12px;font-size:12px}code{background:#f0f0f0;padding:0 4px;border-radius:4px}.bar{background:#fff;padding:12px 14px;color:#999}
-    </style><div class=hd><div class=av>🍱</div><div><b>Tiffin Manager bot</b><span>bot</span></div></div>
+    </style><div class=hd><div class=av>🍱</div><div><b>MyTiffin bot</b><span>bot</span></div></div>
     <div class=chat>
       <div class="m me">/start K7QM4X2P</div>
       <div class="m bot">✅ Connected to <b>Annapurna Tiffins</b>! You will get leave alerts and daily summaries here.\n\n/today — what to cook today\n/tomorrow — tomorrow's count\n/pending — left to deliver</div>

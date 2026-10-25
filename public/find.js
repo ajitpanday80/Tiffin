@@ -32,7 +32,7 @@ function waLink(r) {
   let p = r.phone.replace(/[^\d+]/g, '');
   p = p.startsWith('+') ? p.slice(1) : p.replace(/^0+/, '');
   if (p.length <= 10) p = r.countryCode + p;
-  return `https://wa.me/${p}?text=${encodeURIComponent(`Hi ${r.name}, I found you on Tiffin Manager. Do you deliver to my area?`)}`;
+  return `https://wa.me/${p}?text=${encodeURIComponent(`Hi ${r.name}, I found you on MyTiffin. Do you deliver to my area?`)}`;
 }
 
 function resultCard(r) {

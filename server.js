@@ -28,7 +28,7 @@ const geo = new Geocoder({
   store,
   country: (process.env.COUNTRY || 'in').toLowerCase(), // ISO country code used to bias address / pincode lookups
   enabled: process.env.GEOCODER !== 'off',
-  userAgent: `tiffin-manager/1.0 ${process.env.GEOCODER_CONTACT || ''}`.trim(), // Nominatim asks for a contact
+  userAgent: `mytiffin/1.0 ${process.env.GEOCODER_CONTACT || ''}`.trim(), // Nominatim asks for a contact
 });
 
 // ---------- helpers ----------
@@ -57,6 +57,12 @@ const cookies = (req) =>
       .map((p) => p.trim().split('='))
       .filter((p) => p.length === 2),
   );
+
+// The site's public address: PUBLIC_URL if set, otherwise whatever the visitor used.
+function publicBase(req) {
+  const proto = req.headers['x-forwarded-proto'] || (req.socket.encrypted ? 'https' : 'http');
+  return (process.env.PUBLIC_URL || `${proto}://${req.headers.host || `localhost:${PORT}`}`).replace(/\/$/, '');
+}
 
 const withToday = (o) => ({ ...o, today: L.todayStr() });
 const day = (t, date) => withToday(L.daySummary(t, date));
@@ -232,6 +238,112 @@ route('POST', '/api/password', 'any', async (ctx) => {
 });
 const sha = (t) => crypto.createHash('sha256').update(String(t)).digest('hex');
 
+
+// ---------- password recovery ----------
+// Providers: a 6-digit code sent to their connected Telegram. Customers: a one-time link made by their provider.
+// Anyone: a one-time link made by the platform admin after checking who they are.
+const forgotLimiter = new Limiter(5, 60 * 60 * 1000);
+const resetLimiter = new Limiter(10, 60 * 60 * 1000);
+const CODE_MS = 10 * 60 * 1000;
+const LINK_MS = 24 * 60 * 60 * 1000;
+
+function killSessions(userId) {
+  for (const [k, s] of Object.entries(db.sessions)) if (s.userId === userId) delete db.sessions[k];
+}
+const checkNewPassword = (pw) => {
+  if (typeof pw !== 'string' || pw.length < 6) throw bad('Password must be at least 6 characters');
+  if (pw.length > 200) throw bad('Password is too long');
+};
+async function setPassword(user, pw) {
+  checkNewPassword(pw);
+  user.pass = await hashPassword(pw);
+  killSessions(user.id); // everyone is signed out and must use the new password
+  store.save();
+}
+function makeResetLink(req, user, ms) {
+  const now = Date.now();
+  for (const [k, r] of Object.entries(db.platform.resetTokens)) if (r.exp < now) delete db.platform.resetTokens[k];
+  const token = crypto.randomBytes(24).toString('base64url');
+  db.platform.resetTokens[sha(token)] = { userId: user.id, exp: now + ms };
+  store.save();
+  return `${publicBase(req)}/reset?token=${token}`;
+}
+const tokenUser = (token) => {
+  const rec = db.platform.resetTokens[sha(token || '')];
+  const user = rec && rec.exp > Date.now() && db.users.find((u) => u.id === rec.userId);
+  return user ? { rec, user } : null;
+};
+
+route('GET', '/api/support', null, () => ({ support: db.platform.support }));
+
+route('POST', '/api/forgot', null, (ctx) => {
+  const key = phoneKey(ctx.body.phone);
+  if (forgotLimiter.blocked(`ip:${ctx.ip}`) || forgotLimiter.blocked(`ph:${key}`)) throw bad('Too many requests. Please try again in an hour.', 429);
+  forgotLimiter.fail(`ip:${ctx.ip}`);
+  forgotLimiter.fail(`ph:${key}`);
+  const user = key && db.users.find((u) => u.role === 'provider' && u.key === key);
+  const t = user && db.tenants[user.id];
+  if (t && tg.isLinked(t)) {
+    const code = String(crypto.randomInt(100000, 1000000));
+    db.platform.resets[user.id] = { h: sha(`${user.id}:${code}`), exp: Date.now() + CODE_MS, tries: 0 };
+    store.save();
+    tg.notify(t, `🔑 Your MyTiffin password reset code: <b>${code}</b>\nIt works for 10 minutes. If you did not ask for this, ignore it.`);
+  }
+  return { ok: true }; // identical answer whether or not the number exists or has Telegram
+});
+
+route('POST', '/api/reset', null, async (ctx) => {
+  if (resetLimiter.blocked(`ip:${ctx.ip}`)) throw bad('Too many attempts. Please try again in an hour.', 429);
+  resetLimiter.fail(`ip:${ctx.ip}`);
+  checkNewPassword(ctx.body.password); // check first so a typo does not use up the code
+  const key = phoneKey(ctx.body.phone);
+  const user = key && db.users.find((u) => u.role === 'provider' && u.key === key);
+  const rec = user && db.platform.resets[user.id];
+  if (!rec || rec.exp < Date.now()) throw bad('That code is not valid or has expired. Ask for a new one.');
+  if (++rec.tries > 5) {
+    delete db.platform.resets[user.id];
+    store.save();
+    throw bad('Too many wrong tries. Ask for a new code.');
+  }
+  const given = Buffer.from(sha(`${user.id}:${String(ctx.body.code || '').replace(/\s/g, '')}`));
+  if (!crypto.timingSafeEqual(given, Buffer.from(rec.h))) {
+    store.save();
+    throw bad('That code is not right.');
+  }
+  delete db.platform.resets[user.id];
+  await setPassword(user, ctx.body.password);
+  return { ok: true };
+});
+
+route('GET', '/api/reset-link/:token', null, ({ params }) => {
+  const f = tokenUser(params.token);
+  if (!f) throw bad('This reset link is not valid or has expired. Please ask for a new one.', 404);
+  return { role: f.user.role, name: f.user.name };
+});
+
+route('POST', '/api/reset-link', null, async (ctx) => {
+  if (resetLimiter.blocked(`ip:${ctx.ip}`)) throw bad('Too many attempts. Please try again in an hour.', 429);
+  resetLimiter.fail(`ip:${ctx.ip}`);
+  checkNewPassword(ctx.body.password);
+  const f = tokenUser(ctx.body.token);
+  if (!f) throw bad('This reset link is not valid or has expired. Please ask for a new one.', 404);
+  delete db.platform.resetTokens[sha(ctx.body.token)]; // one use only
+  await setPassword(f.user, ctx.body.password);
+  return { ok: true, role: f.user.role };
+});
+
+// A provider helps one of their own customers who forgot the password. Allowed only when that login belongs to this
+// provider alone, so a provider can never take over an account that also holds other providers' subscriptions.
+route('POST', '/api/customers/:id/reset-link', 'provider', (ctx) => {
+  const c = findCustomer(ctx.t, ctx.params.id);
+  const user = c.phone && db.users.find((u) => u.role === 'customer' && u.key === phoneKey(c.phone));
+  if (!user) throw bad('This customer has not created a login yet.');
+  if (!subscriptionsFor(user).every((s) => s.tid === ctx.user.id)) {
+    throw bad('This person also uses another tiffin service, so only the MyTiffin administrator can reset this password. Ask them to contact support.', 403);
+  }
+  return { link: makeResetLink(ctx.req, user, LINK_MS), name: user.name };
+});
+
 // ----- provider -----
 route('GET', '/api/settings', 'provider', ({ t }) => settingsOut(t));
 
@@ -255,7 +367,7 @@ route('PUT', '/api/settings', 'provider', ({ t, body: b }) => {
 route('POST', '/api/telegram/test', 'provider', async ({ t }) => {
   if (!tg.configured) throw bad('Telegram is not set up on the server yet (TELEGRAM_BOT_TOKEN).');
   if (!tg.isLinked(t)) throw bad('Not connected yet. Send /start and your code to the bot first.');
-  if (!(await tg.notify(t, '✅ Test message from your Tiffin app. Alerts are working!'))) throw bad('Telegram did not accept the message. Check the server log.', 502);
+  if (!(await tg.notify(t, '✅ Test message from your MyTiffin app. Alerts are working!'))) throw bad('Telegram did not accept the message. Check the server log.', 502);
   return { ok: true };
 });
 
@@ -505,6 +617,7 @@ route('POST', '/api/ads/orders/:id/cancel', 'provider', ({ user, params }) => {
 const adminOverview = () => ({
   currency: db.platform.currency,
   payInstructions: db.platform.payInstructions,
+  support: db.platform.support,
   plans: db.platform.plans,
   orders: db.platform.orders
     .map((o) => ({ ...M.adView(o), tid: o.tid, provider: db.tenants[o.tid]?.settings.businessName || '(deleted)', phone: db.tenants[o.tid]?.settings.businessPhone || '' }))
@@ -520,9 +633,18 @@ route('GET', '/api/admin/overview', 'admin', () => adminOverview());
 
 route('PUT', '/api/admin/platform', 'admin', ({ body }) => {
   db.platform.payInstructions = str(body.payInstructions, 500);
+  db.platform.support = str(body.support, 300);
   db.platform.currency = str(body.currency, 4) || db.platform.currency;
   store.save();
   return adminOverview();
+});
+
+route('POST', '/api/admin/reset-link', 'admin', ({ req, body }) => {
+  const role = body.role === 'customer' ? 'customer' : 'provider';
+  const key = phoneKey(body.phone);
+  const user = key && db.users.find((u) => u.role === role && u.key === key);
+  if (!user) throw bad('No such account.', 404);
+  return { link: makeResetLink(req, user, 60 * 60 * 1000), name: user.name, role };
 });
 
 route('POST', '/api/admin/plans', 'admin', ({ body }) => {
@@ -685,11 +807,10 @@ async function handleApi(req, res, url) {
 }
 
 // clean URLs -> html files
-const PAGES = { '/help': 'help.html', '/find': 'find.html', '/admin': 'admin.html', '/': 'index.html', '/login': 'login.html', '/signup': 'login.html', '/app': 'app.html', '/me': 'me.html' };
+const PAGES = { '/forgot': 'forgot.html', '/reset': 'reset.html', '/help': 'help.html', '/find': 'find.html', '/admin': 'admin.html', '/': 'index.html', '/login': 'login.html', '/signup': 'login.html', '/app': 'app.html', '/me': 'me.html' };
 
 function serveGenerated(req, res, url) {
-  const proto = req.headers['x-forwarded-proto'] || (req.socket.encrypted ? 'https' : 'http');
-  const base = (process.env.PUBLIC_URL || `${proto}://${req.headers.host || `localhost:${PORT}`}`).replace(/\/$/, '');
+  const base = publicBase(req);
   const send = (status, type, body) => {
     res.writeHead(status, { 'Content-Type': type, 'Cache-Control': 'no-cache', ...SECURITY });
     res.end(req.method === 'HEAD' ? undefined : body);
@@ -754,7 +875,7 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`Tiffin app running on http://localhost:${PORT}  (timezone: ${process.env.TZ})`);
+  console.log(`MyTiffin app running on http://localhost:${PORT}  (timezone: ${process.env.TZ})`);
   if (!tg.configured) console.log('Telegram alerts are off (set TELEGRAM_BOT_TOKEN to enable).');
   tg.start();
   setInterval(() => tg.tick(), 30_000).unref();

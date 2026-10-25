@@ -64,11 +64,12 @@ function draw() {
     go);
 
   $('#box').replaceChildren(
-    h('a', { class: 'brand mobile-brand', href: '/' }, h('img', { src: '/icon.svg', alt: '', width: 36, height: 36 }), 'Tiffin Manager'),
+    h('a', { class: 'brand mobile-brand', href: '/' }, h('img', { src: '/icon.svg', alt: '', width: 36, height: 36 }), 'MyTiffin'),
     h('h1', {}, isAdmin ? 'Admin sign-in' : isUp ? 'Create your account' : 'Welcome back'),
     !isAdmin && h('div', { class: 'seg two', role: 'tablist' },
       ['provider', 'customer'].map((r) => h('button', { type: 'button', role: 'tab', class: role === r ? 'on' : '', onclick: () => { state.role = r; draw(); } }, r === 'provider' ? '👨‍🍳 Tiffin provider' : '🍽 Customer'))),
     form,
+    !isAdmin && !isUp && h('p', { class: 'auth-foot' }, h('a', { href: `/forgot?role=${role}` }, 'Forgot password?')),
     !isAdmin && h('p', { class: 'auth-foot' }, isUp ? 'Already have an account? ' : 'New here? ',
       h('button', { type: 'button', onclick: () => { state.mode = isUp ? 'login' : 'signup'; history.replaceState(null, '', state.mode === 'signup' ? '/signup' : '/login'); draw(); } }, isUp ? 'Log in' : 'Create an account')),
     h('p', { class: 'auth-foot' }, h('a', { href: '/' }, '← Back to website')));

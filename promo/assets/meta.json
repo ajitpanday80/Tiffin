@@ -1,7 +1,7 @@
 {
  "leave": {
-  "from": "2026-10-25",
-  "to": "2026-10-27"
+  "from": "2026-10-26",
+  "to": "2026-10-28"
  },
  "boxes": {
   "todayHero": [
@@ -109,7 +109,7 @@
   "pending": 6,
   "delivered": 6,
   "leave": 2,
-  "date": "2026-10-24"
+  "date": "2026-10-25"
  },
  "todayAfter": {
   "boxes": 13,
@@ -125,8 +125,8 @@
   "after": 12,
   "normal": 8,
   "deluxe": 4,
-  "from": "2026-10-25",
-  "to": "2026-10-27",
+  "from": "2026-10-26",
+  "to": "2026-10-28",
   "leaveDays": 3
  },
  "findOrder": [

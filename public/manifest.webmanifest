@@ -1,6 +1,6 @@
 {
-  "name": "Tiffin Manager",
-  "short_name": "Tiffin",
+  "name": "MyTiffin",
+  "short_name": "MyTiffin",
   "start_url": "/app",
   "display": "standalone",
   "background_color": "#fff7ea",

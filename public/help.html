@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Help and guides | Tiffin Manager</title>
+  <title>Help and guides | MyTiffin</title>
   <meta name="description" content="Step-by-step guides: set up your tiffin kitchen, connect Telegram alerts, and how customers mark leave or find a tiffin service.">
   <meta name="theme-color" content="#e8590c">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
@@ -13,7 +13,7 @@
 </head>
 <body class="site">
 <header class="site-nav"><div class="wrap">
-  <a class="brand" href="/"><img src="/icon.svg" alt="">Tiffin Manager</a>
+  <a class="brand" href="/"><img src="/icon.svg" alt="">MyTiffin</a>
   <nav class="nav-links" aria-label="Sections"><a href="/find">Find tiffin</a><a href="/blog">Blog</a><a href="/help">Help</a></nav>
   <div class="nav-cta" id="navcta"><a class="btn ghost sm" href="/login">Log in</a><a class="btn primary sm" href="/signup">Get started</a></div>
 </div></header>
@@ -22,13 +22,14 @@
 <section class="finder">
   <div class="wrap">
     <span class="eyebrow">Help</span>
-    <h1>How to use Tiffin Manager</h1>
+    <h1>How to use MyTiffin</h1>
     <p class="lead">Short, step-by-step guides for tiffin providers and for customers. Pick where you are.</p>
     <div class="fchips">
       <a class="fchip" href="#providers">👨‍🍳 Provider quick start</a>
       <a class="fchip" href="#telegram">✈️ Telegram alerts</a>
       <a class="fchip" href="#customers">🍽 For customers</a>
       <a class="fchip" href="#together">🤝 How they connect</a>
+      <a class="fchip" href="#password">🔑 Forgot password</a>
       <a class="fchip" href="#install">📱 Install on phone</a>
     </div>
   </div>
@@ -85,7 +86,7 @@
   <h3 class="gh">Connect your Telegram</h3>
   <ol class="gsteps">
     <li><h3>Install Telegram</h3><p>Get the free Telegram app on your phone and sign in.</p></li>
-    <li><h3>Find your code</h3><p>In Tiffin Manager open <b>Settings → Telegram alerts</b>. You will see the bot’s name (like <code>@YourBot</code>) and your personal connect code.</p></li>
+    <li><h3>Find your code</h3><p>In MyTiffin open <b>Settings → Telegram alerts</b>. You will see the bot’s name (like <code>@YourBot</code>) and your personal connect code.</p></li>
     <li><h3>Open the bot</h3><p>In Telegram, search for that bot name, open it and tap <b>Start</b>.</p></li>
     <li><h3>Send your code</h3><p>Type <code>/start</code>, a space, then your code. Example: <code>/start ABCD2345</code></p></li>
     <li><h3>Check it works</h3><p>The bot says you are connected. Back in the app, press <b>Send test</b>. You can change the morning and evening times in the same place, or clear a time to turn that summary off.</p></li>
@@ -116,7 +117,7 @@
 <!-- ===================== CUSTOMERS ===================== -->
 <section id="customers">
   <span class="eyebrow">For customers</span>
-  <h2>Using Tiffin Manager as a customer</h2>
+  <h2>Using MyTiffin as a customer</h2>
   <p class="sub">It is free for you. You can log in, or just use a personal link your provider sends.</p>
   <div class="vids one">
   <figure class="vid">
@@ -142,7 +143,7 @@
   </ol>
 
   <details class="faqitem"><summary>It says my phone number was not found</summary><p>You can only create a login with a number your provider has added. Ask them to add or correct it. Numbers are matched on the last 10 digits, so the country code does not matter.</p></details>
-  <details class="faqitem"><summary>I forgot my password</summary><p>There is no automatic reset yet. Ask the person who runs the system to reset it. Meanwhile your personal link from your provider still works.</p></details>
+  <details class="faqitem"><summary>I forgot my password</summary><p>See <a href="#password">Forgot your password?</a> below. Providers get a code on Telegram, customers get a link from their provider.</p></details>
   <details class="faqitem"><summary>I use more than one tiffin service</summary><p>If each saved your number, your login shows all of them as separate cards, each with its own leave.</p></details>
 </section>
 
@@ -167,6 +168,30 @@
   </div>
 </section>
 
+<!-- ===================== PASSWORD ===================== -->
+<section id="password">
+  <span class="eyebrow">Locked out?</span>
+  <h2>Forgot your password?</h2>
+  <p class="sub">Your account is tied to your phone number, so we check it is really you before changing anything.</p>
+
+  <h3 class="gh">Tiffin providers: a code on Telegram</h3>
+  <ol class="gsteps">
+    <li><h3>Ask for a code</h3><p>On the <a href="/login">login page</a> tap <b>Forgot password?</b> and enter your phone number. We send a 6-digit code to the Telegram chat you connected (<b>Settings → Telegram alerts</b>).</p></li>
+    <li><h3>Choose a new password</h3><p>Type the code and your new password (6+ characters). The code works for 10 minutes and allows 5 tries. You are signed out on all other phones.</p></li>
+  </ol>
+  <p class="note-area"><b>Connect Telegram now, before you need it.</b> It is also how you recover your account. If it is not connected, the code cannot be sent. Contact support (below) for a reset link.</p>
+
+  <h3 class="gh">Customers: a link from your provider</h3>
+  <ol class="gsteps">
+    <li><h3>Ask your provider</h3><p>Message or call your tiffin provider. They open your name in their MyTiffin app and tap <b>Create reset link</b>.</p></li>
+    <li><h3>Open the link</h3><p>They send it to you on WhatsApp. It works once and expires in 24 hours. Choose a new password.</p></li>
+  </ol>
+  <p class="note-area">If you use more than one tiffin service, a single provider cannot reset your login. Contact support instead. Your personal leave link keeps working without a password.</p>
+
+  <h3 class="gh">Anyone: contact support</h3>
+  <p class="sub">Support can create a one-time reset link after checking it is you (for example by calling or messaging you from the phone number on the account). The support contact is shown on the <a href="/forgot">forgot password page</a>.</p>
+</section>
+
 <!-- ===================== INSTALL ===================== -->
 <section id="install">
   <span class="eyebrow">Tip</span>
@@ -185,7 +210,7 @@
   <h2>Common questions</h2>
   <details class="faqitem"><summary>The count on Today looks wrong</summary><p>Check that the customer’s <b>start date</b> and <b>last day</b> (More options) are right, that closed weekdays in Settings are correct, and whether they have leave on that date. Boxes per day also multiplies the count.</p></details>
   <details class="faqitem"><summary>I marked Delivered by mistake</summary><p>Open the <b>Delivered</b> tab on Today and press <b>Undo</b>.</p></details>
-  <details class="faqitem"><summary>I forgot my password</summary><p>There is no automatic reset yet. The person who runs the system can reset it for you. While logged in you can change it any time under Settings.</p></details>
+  <details class="faqitem"><summary>I forgot my password</summary><p>See <a href="#password">Forgot your password?</a> above.</p></details>
   <details class="faqitem"><summary>I am not in the marketplace</summary><p>In <b>Grow</b>, the listing switch must be on, and you need an area plus either a pincode or a set location. Press <b>Save listing</b>. A listing can also be hidden if it was suspended by the administrator.</p></details>
   <details class="faqitem"><summary>Is my customers’ data private?</summary><p>Each provider only sees their own customers. In the marketplace only a rough location (about 1 km) and the business details you choose are shown. A customer’s search location is not stored.</p></details>
 </section>
@@ -193,7 +218,7 @@
 </div>
 </main>
 
-<footer class="site"><div class="wrap"><a class="brand" href="/"><img src="/icon.svg" alt="">Tiffin Manager</a><span><a href="/blog">Blog</a> · <a href="/help">Help</a> · <a href="/find">Find tiffin</a></span></div></footer>
+<footer class="site"><div class="wrap"><a class="brand" href="/"><img src="/icon.svg" alt="">MyTiffin</a><span><a href="/blog">Blog</a> · <a href="/help">Help</a> · <a href="/find">Find tiffin</a></span></div></footer>
 <script src="/site.js"></script>
 </body>
 </html>

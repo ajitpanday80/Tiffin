@@ -21,7 +21,7 @@ Pick a time by which a leave must be told so you can avoid buying and cooking fo
 
 There is no single right answer. Pick the one that matches **when you actually buy and start cooking**. If you buy vegetables the evening before, a morning cut-off does not protect you.
 
-In Tiffin Manager this is a setting: *Settings → Customer leave*. By default customers can mark leave from tomorrow onwards. You can allow cancelling today's tiffin until a chosen hour.
+In MyTiffin this is a setting: *Settings → Customer leave*. By default customers can mark leave from tomorrow onwards. You can allow cancelling today's tiffin until a chosen hour.
 
 ## 2. Decide what happens to the bill
 
@@ -37,7 +37,7 @@ Whatever you choose, put it in your first welcome message. Most disputes happen 
 
 The best leave system is the one the customer will actually use. A form they fill in on their own phone, in ten seconds, with a first and last day, beats any chat message.
 
-With Tiffin Manager, each customer can log in with their phone number or use a personal link. They pick the days, and:
+With MyTiffin, each customer can log in with their phone number or use a personal link. They pick the days, and:
 
 - your box count for those days drops automatically,
 - you get a Telegram message the moment they mark it (see [how to set up Telegram](/blog/telegram-alerts-for-your-tiffin-business)),
@@ -61,7 +61,7 @@ That last step is the one that saves money. When the number of boxes you need is
   {
     slug: 'telegram-alerts-for-your-tiffin-business',
     title: 'Get instant Telegram alerts for your tiffin business in 5 minutes',
-    description: 'A step-by-step guide to connect the Tiffin Manager bot to your Telegram so you know the moment a customer takes leave.',
+    description: 'A step-by-step guide to connect the MyTiffin bot to your Telegram so you know the moment a customer takes leave.',
     audience: 'providers',
     emoji: '✈️',
     date: '2026-10-24',
@@ -79,12 +79,14 @@ You do not need to keep the app open all day to know what is happening. Connect 
 ## Connect in five steps
 
 1. Install Telegram on your phone (it is free) and create your account if you do not have one.
-2. In the Tiffin Manager app, open **Settings** and scroll to **Telegram alerts**. You will see the bot's name and your personal **connect code**.
+2. In the MyTiffin app, open **Settings** and scroll to **Telegram alerts**. You will see the bot's name and your personal **connect code**.
 3. In Telegram, search for that bot name and open it. Tap **Start**.
 4. Send this message to the bot, using your own code: \`/start YOURCODE\`
 5. The bot replies that you are connected. Back in the app, press **Send test** to confirm.
 
 That is all. The code ties your Telegram to your kitchen only, so other providers using the same bot never see your customers.
+
+There is a second benefit: if you ever forget your password, MyTiffin sends the reset code to this same Telegram chat. Connect it now, before you need it.
 
 ## Choose when you hear from the bot
 
@@ -122,7 +124,7 @@ If you cannot say it in one sentence, the tiers are too complicated. Complicated
 
 Every extra variation slows you down. A good test: **can you prepare the deluxe box by adding to the normal box**, rather than cooking a different meal? Adding a side is easy. Cooking a separate main for each deluxe customer is not.
 
-This is also why a count matters. When you know the exact number of normal and deluxe boxes for the day, you can batch-cook the base and add the extras accurately. Tiffin Manager shows both numbers on the Today screen.
+This is also why a count matters. When you know the exact number of normal and deluxe boxes for the day, you can batch-cook the base and add the extras accurately. MyTiffin shows both numbers on the Today screen.
 
 ## Set the gap on purpose
 
@@ -176,7 +178,7 @@ At month end, send each customer a short message with the same four lines:
 - Rate per box
 - Total
 
-Tiffin Manager's **Reports** screen has this ready. For each customer there is a button to send the summary on WhatsApp, and you can download the full month as a spreadsheet if you want to keep your own books.
+MyTiffin's **Reports** screen has this ready. For each customer there is a button to send the summary on WhatsApp, and you can download the full month as a spreadsheet if you want to keep your own books.
 
 ## Handle the dispute without drama
 
@@ -226,7 +228,7 @@ On the first day of a new customer:
 - send a short message afterwards asking if everything was fine,
 - remember their notes (less spicy, no onion) and show that you did.
 
-Small things, done every time, are what people recommend you for. In Tiffin Manager you can store a note per customer, and it appears on the delivery list.
+Small things, done every time, are what people recommend you for. In MyTiffin you can store a note per customer, and it appears on the delivery list.
 
 ## List yourself where people search
 
@@ -269,7 +271,7 @@ If the answer is "none", fix that first or wait. If the answer is "a handful to 
 
 ## Free listing versus a paid ad
 
-In the Tiffin Manager marketplace, a free listing already shows you to nearby customers who search. A paid ad adds a **Sponsored** spot near the top, but only for customers within the radius of the plan you buy. People far from your kitchen never see it, which keeps the ad relevant and keeps you from paying for views you could never serve.
+In the MyTiffin marketplace, a free listing already shows you to nearby customers who search. A paid ad adds a **Sponsored** spot near the top, but only for customers within the radius of the plan you buy. People far from your kitchen never see it, which keeps the ad relevant and keeps you from paying for views you could never serve.
 
 So the question is not "listing or nothing". It is "do I want to be seen **first** by people near me?"
 
@@ -358,7 +360,7 @@ Most people travel at some point. Ask now, while everyone is calm:
 - Am I charged for days I told you in time?
 - Can the subscription be paused for a longer break?
 
-A provider who has a clear answer has probably thought about it, and that is a good sign. If they use Tiffin Manager, you can mark your leave yourself in seconds from your own phone.
+A provider who has a clear answer has probably thought about it, and that is a good sign. If they use MyTiffin, you can mark your leave yourself in seconds from your own phone.
 
 ## 5. Notice how they communicate
 
@@ -409,7 +411,7 @@ Say it clearly, including if you want it to restart on a specific morning.
 
 ## Use the easiest method
 
-If your provider uses Tiffin Manager, you can mark leave yourself:
+If your provider uses MyTiffin, you can mark leave yourself:
 
 1. Open the link they sent you, or log in with your phone number and password at [the login page](/login?role=customer). New here? [Create your login](/signup?role=customer) using the phone number your provider has saved.
 2. Choose the first and last day.

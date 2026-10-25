@@ -1,4 +1,4 @@
-# 🍱 Tiffin Manager
+# 🍱 MyTiffin
 
 A light, mobile-first web app for tiffin providers.
 
@@ -30,6 +30,7 @@ npm test             # API tests
 | `FORCE_HTTPS` | set to `1` when behind a proxy that sets `X-Forwarded-Proto`: plain-http requests are redirected to https |
 | `PUBLIC_URL` | public address (e.g. `https://tiffin.example.com`) used in the blog's canonical links and sitemap; defaults to the request host |
 | `GEOCODER` | set to `off` to disable address/pincode geocoding (pincode matching still works) |
+| `TELEGRAM_API_BASE` | Telegram API address; only for tests (they point it at a fake server). Leave unset. |
 | `GEOCODER_CONTACT` | your email/URL, sent in the geocoder User-Agent (OpenStreetMap asks for this) |
 
 ## Telegram setup (5 minutes)
@@ -94,7 +95,12 @@ Any host that runs Node with a persistent disk works (a small VPS, Fly.io volume
 - A provider signs up with phone + password + service name.
 - A **customer can only sign up with a phone number a provider already saved** for them (last 10 digits are compared). They then see every provider who has that number.
 - **Known weakness:** whoever knows a customer's number can create the account *before* the real customer does, and could then mark leave for them. Impact is limited to leave days (no payments or addresses are exposed), and providers can see leave changes, but it is real. The personal `/c/<token>` link avoids this since the secret is sent only to the customer.
-- **No self-service password reset** (no SMS/email integration). Reset on the server:
+- **Password recovery** (there is no SMS/email integration, so it relies on channels we already have):
+  - *Providers:* "Forgot password?" sends a 6-digit code to the Telegram chat they connected (valid 10 minutes, 5 tries, rate limited). The answer is the same whether or not the number exists. Providers without Telegram connected cannot use this, so tell them to connect it.
+  - *Customers:* their provider opens the customer and taps **Create reset link**, then sends the one-time link (24 h) on WhatsApp. Allowed only when that login belongs to that provider alone, so a provider can never take over an account that also covers other providers.
+  - *Anyone, fallback:* the administrator creates a one-time link (1 h) under **Admin → Reset login** after checking the person's identity by hand, and can publish a support contact (**Admin → Payment & support**) that is shown on the forgot-password page.
+  - Last resort on the server: `node scripts/reset-password.js <provider|customer> <phone> <new-password>`.
+  - Every reset signs the account out everywhere. Reset links and codes are single use. Adding SMS/WhatsApp OTP later needs a provider account (e.g. Twilio, MSG91) and is the natural next step for customers.
   `node scripts/reset-password.js provider 9811100001 newpassword`
 - Failed logins are rate-limited per phone and per IP (this also means someone can temporarily lock a number out).
 
