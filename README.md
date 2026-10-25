@@ -25,7 +25,8 @@ npm test             # API tests
 | `HOST` | address to listen on (default `0.0.0.0`; use `127.0.0.1` behind a local HTTPS proxy) |
 | `TZ` | **Your timezone**, e.g. `Asia/Kolkata` (the default). "Today" and the Telegram summary times follow it. |
 | `DATA_DIR` | where `db.json` lives (default `./data`). Put this on a **persistent disk**. |
-| `TELEGRAM_BOT_TOKEN` | optional, enables Telegram alerts |
+| `TELEGRAM_BOT_TOKEN` | optional, enables Telegram alerts. The site then shows the bot's real `@username` and a t.me link in Settings, Help and the blog |
+| `TELEGRAM_BOT_NAME` | the bot's display name shown on the site (default `mytiffin`) |
 | `COUNTRY` | ISO country code that biases pincode/address lookups (default `in`) |
 | `FORCE_HTTPS` | set to `1` when behind a proxy that sets `X-Forwarded-Proto`: plain-http requests are redirected to https |
 | `PUBLIC_URL` | public address (e.g. `https://tiffin.example.com`) used in the blog's canonical links and sitemap; defaults to the request host |
@@ -38,7 +39,7 @@ npm test             # API tests
 Providers get a friendlier version of this in the app at `/help#telegram`; the owner steps are at `/help#telegram-owner`.
 
 
-1. In Telegram, message **@BotFather** → `/newbot` → copy the token.
+1. In Telegram, message **@BotFather** → `/newbot`. Name it **mytiffin** (a bot's username must end in `bot`) → copy the token.
 2. Start the server with `TELEGRAM_BOT_TOKEN=<token>`.
 3. Each provider opens **Settings → Telegram**, finds the bot, and sends the `/start CODE` shown there. Done; use *Send test* to check.
 

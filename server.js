@@ -24,6 +24,15 @@ const COOKIE = 'tiffin_session';
 const store = new Store(process.env.DATA_DIR || path.join(ROOT, 'data'));
 const { db } = store;
 const tg = new Telegram({ token: process.env.TELEGRAM_BOT_TOKEN, store });
+// How the bot is named on the website. The display name is fixed text; the @username only exists after Telegram
+// confirms it (getMe at startup), so until then pages show the display name and link to the help section.
+const BOT_NAME = process.env.TELEGRAM_BOT_NAME || 'mytiffin';
+const botVars = () => ({
+  '{{BOT}}': BOT_NAME,
+  '{{BOT_AT}}': tg.botName ? `@${tg.botName}` : BOT_NAME,
+  '{{BOT_URL}}': tg.botName ? `https://t.me/${tg.botName}` : '/help#telegram',
+});
+const fillBot = (html) => (html.includes('{{BOT') ? html.replace(/\{\{BOT(?:_AT|_URL)?\}\}/g, (m) => botVars()[m]) : html);
 const geo = new Geocoder({
   store,
   country: (process.env.COUNTRY || 'in').toLowerCase(), // ISO country code used to bias address / pincode lookups
@@ -78,7 +87,7 @@ const findByToken = (token) => {
 
 function settingsOut(t) {
   const { telegramChatId, linkCode, ...s } = t.settings;
-  return { ...s, telegram: { configured: tg.configured, linked: tg.isLinked(t), bot: tg.botName, code: linkCode } };
+  return { ...s, telegram: { configured: tg.configured, linked: tg.isLinked(t), bot: tg.botName, botAt: botVars()['{{BOT_AT}}'], botUrl: botVars()['{{BOT_URL}}'], code: linkCode } };
 }
 
 function cleanCustomer(b, old) {
@@ -813,7 +822,7 @@ function serveGenerated(req, res, url) {
   const base = publicBase(req);
   const send = (status, type, body) => {
     res.writeHead(status, { 'Content-Type': type, 'Cache-Control': 'no-cache', ...SECURITY });
-    res.end(req.method === 'HEAD' ? undefined : body);
+    res.end(req.method === 'HEAD' ? undefined : fillBot(body));
   };
   const path_ = url.pathname.replace(/(.)\/$/, '$1');
   if (path_ === '/blog') return send(200, 'text/html; charset=utf-8', renderIndex(url.searchParams.get('for'), base)), true;
@@ -841,6 +850,11 @@ function serveStatic(req, res, url) {
     return res.end('Not found');
   }
   const type = MIME[path.extname(file)] || 'application/octet-stream';
+  if (path.extname(file) === '.html') {
+    const html = Buffer.from(fillBot(fs.readFileSync(file, 'utf8')));
+    res.writeHead(200, { 'Content-Type': type, 'Content-Length': html.length, 'Cache-Control': 'no-cache', ...SECURITY });
+    return res.end(req.method === 'HEAD' ? undefined : html);
+  }
   const size = fs.statSync(file).size;
   // Range support: browsers need it to play and seek video (Safari insists on it)
   const m = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');

@@ -183,3 +183,18 @@ test('forgot-password requests are rate limited', async () => {
   for (let i = 0; i < 7; i++) last = await call('POST', '/api/forgot', { phone: `98000${i}0000` }, null, { 'X-Forwarded-For': '203.0.113.77' });
   assert.equal(last.status, 429);
 });
+
+test('bot name on the website: real @username and link once Telegram answers', async () => {
+  const get = async (u) => (await fetch(BASE + u)).text();
+  const help = await get('/help');
+  assert.doesNotMatch(help, /\{\{BOT/);
+  assert.match(help, /<b>@MyTiffinTestBot<\/b>/);
+  assert.match(help, /href="https:\/\/t\.me\/MyTiffinTestBot"/);
+  assert.match(help, /Name it <b>mytiffin<\/b>/);
+  const post = await get('/blog/telegram-alerts-for-your-tiffin-business');
+  assert.doesNotMatch(post, /\{\{BOT/);
+  assert.match(post, /<strong>@MyTiffinTestBot<\/strong>/);
+  const s = (await call('GET', '/api/settings', null, (await login('provider', '9811100050', 'by-admin-1')).cookie)).body.telegram;
+  assert.equal(s.botAt, '@MyTiffinTestBot');
+  assert.equal(s.botUrl, 'https://t.me/MyTiffinTestBot');
+});

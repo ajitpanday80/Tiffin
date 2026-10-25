@@ -445,7 +445,7 @@ function renderSettings() {
     ? h('div', { class: 'help' }, h('p', {}, 'Telegram alerts are not switched on yet. Whoever runs this system needs to add the bot token on the server (about 5 minutes). ', h('a', { href: '/help#telegram-owner', target: '_blank', rel: 'noopener' }, 'Setup steps for them')))
     : h('div', { class: 'stack' },
         h('div', { class: 'status' }, h('span', { class: `dot ${tg.linked ? 'on' : ''}` }), tg.linked ? 'Connected to your Telegram' : 'Not connected yet'),
-        !tg.linked && h('div', { class: 'help' }, 'Connect in 3 steps:', h('ol', {}, h('li', {}, 'Open Telegram and search for ', h('b', {}, `@${tg.bot}`)), h('li', {}, 'Tap Start, then send: ', h('code', {}, `/start ${tg.code}`)), h('li', {}, 'Come back here and refresh this page'))),
+        !tg.linked && h('div', { class: 'help' }, 'Connect in 3 steps:', h('ol', {}, h('li', {}, 'Open Telegram and search for ', tg.botUrl && tg.botUrl.startsWith('https://') ? h('a', { href: tg.botUrl, target: '_blank', rel: 'noopener' }, h('b', {}, tg.botAt)) : h('b', {}, tg.botAt)), h('li', {}, 'Tap Start, then send: ', h('code', {}, `/start ${tg.code}`)), h('li', {}, 'Come back here and refresh this page'))),
         tg.linked && h('div', { class: 'grid2' },
           h('button', { type: 'button', class: 'btn sm', onclick: () => act(() => api('POST', '/api/telegram/test'), 'Test message sent') }, 'Send test'),
           h('button', { type: 'button', class: 'btn sm danger', onclick: async () => { if (confirm('Disconnect Telegram alerts?')) { S.settings = (await act(() => api('POST', '/api/telegram/unlink'))) || S.settings; refresh(); } } }, 'Disconnect')),

@@ -86,8 +86,8 @@
   <h3 class="gh">Connect your Telegram</h3>
   <ol class="gsteps">
     <li><h3>Install Telegram</h3><p>Get the free Telegram app on your phone and sign in.</p></li>
-    <li><h3>Find your code</h3><p>In MyTiffin open <b>Settings → Telegram alerts</b>. You will see the bot’s name (like <code>@YourBot</code>) and your personal connect code.</p></li>
-    <li><h3>Open the bot</h3><p>In Telegram, search for that bot name, open it and tap <b>Start</b>.</p></li>
+    <li><h3>Find your code</h3><p>In MyTiffin open <b>Settings → Telegram alerts</b>. You will see the bot (<b>{{BOT_AT}}</b>) and your personal connect code.</p></li>
+    <li><h3>Open the bot</h3><p>In Telegram, search for <b>{{BOT_AT}}</b> (or <a href="{{BOT_URL}}">open it directly</a>), open it and tap <b>Start</b>.</p></li>
     <li><h3>Send your code</h3><p>Type <code>/start</code>, a space, then your code. Example: <code>/start ABCD2345</code></p></li>
     <li><h3>Check it works</h3><p>The bot says you are connected. Back in the app, press <b>Send test</b>. You can change the morning and evening times in the same place, or clear a time to turn that summary off.</p></li>
   </ol>
@@ -100,10 +100,10 @@
   <h3 class="gh" id="telegram-owner">For whoever runs the system (one-time setup)</h3>
   <p class="sub">One bot serves every provider. You create it once.</p>
   <ol class="gsteps">
-    <li><h3>Create the bot</h3><p>In Telegram, open <b>@BotFather</b> and send <code>/newbot</code>. Choose a display name and a username ending in <code>bot</code>. BotFather replies with a <b>token</b>.</p></li>
+    <li><h3>Create the bot</h3><p>In Telegram, open <b>@BotFather</b> and send <code>/newbot</code>. Name it <b>{{BOT}}</b>. Its username must end in <code>bot</code>. BotFather replies with a <b>token</b>.</p></li>
     <li><h3>Keep the token secret</h3><p>Anyone with the token can control the bot. Do not share it or put it in the website code or a public repository.</p></li>
     <li><h3>Give it to the server</h3><p>Start the app with the token in the environment: <code>TELEGRAM_BOT_TOKEN=your-token npm start</code>. On a hosting service, add it as an environment variable and restart.</p></li>
-    <li><h3>Confirm it is running</h3><p>The server log shows <code>[telegram] bot @YourBot ready</code>. Providers will now see the bot name and their connect code in Settings.</p></li>
+    <li><h3>Confirm it is running</h3><p>The server log shows <code>[telegram] bot @your_bot_username ready</code>. Providers will now see the bot name and their connect code in Settings.</p></li>
     <li><h3>Optional: polish the bot</h3><p>In BotFather you can set a profile picture and description (<code>/setuserpic</code>, <code>/setdescription</code>) and a command list (<code>/setcommands</code>): <code>today</code>, <code>tomorrow</code>, <code>pending</code>.</p></li>
   </ol>
   <details class="faqitem"><summary>Troubleshooting the server side</summary>

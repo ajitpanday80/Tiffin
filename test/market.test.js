@@ -210,3 +210,12 @@ test('videos are served with Range support (needed for seeking / Safari)', async
   const bad = await fetch(`${BASE}/videos/provider.mp4`, { headers: { Range: `bytes=${total + 5}-` } });
   assert.equal(bad.status, 416);
 });
+
+test('without a Telegram token the pages show the bot display name, never a raw placeholder', async () => {
+  const help = await (await fetch(`${BASE}/help`)).text();
+  assert.doesNotMatch(help, /\{\{BOT/);
+  assert.match(help, /search for <b>mytiffin<\/b>/);
+  assert.match(help, /href="\/help#telegram">open it directly/);
+  const post = await (await fetch(`${BASE}/blog/telegram-alerts-for-your-tiffin-business`)).text();
+  assert.match(post, /<strong>mytiffin<\/strong>/);
+});

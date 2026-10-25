@@ -79,8 +79,8 @@ You do not need to keep the app open all day to know what is happening. Connect 
 ## Connect in five steps
 
 1. Install Telegram on your phone (it is free) and create your account if you do not have one.
-2. In the MyTiffin app, open **Settings** and scroll to **Telegram alerts**. You will see the bot's name and your personal **connect code**.
-3. In Telegram, search for that bot name and open it. Tap **Start**.
+2. In the MyTiffin app, open **Settings** and scroll to **Telegram alerts**. You will see the bot, **{{BOT_AT}}**, and your personal **connect code**.
+3. In Telegram, search for **{{BOT_AT}}** and open it. Tap **Start**.
 4. Send this message to the bot, using your own code: \`/start YOURCODE\`
 5. The bot replies that you are connected. Back in the app, press **Send test** to confirm.
 
