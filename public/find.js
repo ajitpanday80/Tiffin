@@ -25,8 +25,10 @@ function toast(msg, bad) {
 }
 const post = (url, body, keepalive) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), keepalive });
 
+const switchParam = new URLSearchParams(location.search).get('switch');
 let lastQuery = '';
 let me = null;
+let switching = null; // { tid, cid, businessName } when a customer is moving away from a provider
 
 function resultCard(r) {
   const price = [r.priceFrom.normal && `Normal ${r.priceFrom.currency}${r.priceFrom.normal}`, r.priceFrom.deluxe && `✨ Deluxe ${r.priceFrom.currency}${r.priceFrom.deluxe}`].filter(Boolean).join(' · ');
@@ -44,8 +46,9 @@ function resultCard(r) {
     (r.tags.length > 0 || r.meals.length > 0) && h('div', { class: 'tagrow' }, r.meals.map((m) => h('span', { class: 'tag meal' }, m)), r.tags.map((t) => h('span', { class: 'tag' }, t))),
     price && h('div', { class: 'price' }, `From: ${price}`),
     more, about,
+    r.joined === 'active' && h('p', { class: 'joined' }, '✓ You are already with this service'),
     h('div', { class: 'ractions' },
-      h('button', { class: 'btn primary', type: 'button', onclick: () => openEnquiry(r) }, 'Request to join'),
+      r.joined !== 'active' && h('button', { class: 'btn primary', type: 'button', onclick: () => openEnquiry(r) }, switching ? 'Switch to this one' : r.joined === 'ended' ? 'Join again' : 'Request to join'),
       r.phone && h('a', { class: 'btn', href: `tel:${r.phone}` }, '📞 Call')));
 }
 
@@ -69,6 +72,7 @@ function show(data, q) {
 
 async function run(params, label) {
   const out = $('#out');
+  await ready;
   out.replaceChildren(h('p', { class: 'muted', style: { textAlign: 'center', padding: '30px' } }, 'Searching…'));
   try {
     const r = await fetch(`/api/market/search?${new URLSearchParams(params)}`);
@@ -85,7 +89,7 @@ $('#form').addEventListener('submit', (e) => {
   const q = $('#q').value.trim();
   if (!q) return $('#q').focus();
   lastQuery = q;
-  history.replaceState(null, '', `/find?q=${encodeURIComponent(q)}`);
+  history.replaceState(null, '', `/find?q=${encodeURIComponent(q)}${switchParam ? `&switch=${encodeURIComponent(switchParam)}` : ''}`);
   try { localStorage.setItem('tiffin_last_q', q); } catch { /* private mode */ }
   run({ q }, q);
 });
@@ -94,7 +98,7 @@ $('#geo').addEventListener('click', (e) => {
   if (!navigator.geolocation) return toast('Your browser cannot share location. Please type your pincode.', true);
   e.currentTarget.disabled = true;
   navigator.geolocation.getCurrentPosition(
-    (pos) => { $('#geo').disabled = false; lastQuery = ''; history.replaceState(null, '', '/find'); run({ lat: pos.coords.latitude, lng: pos.coords.longitude }, 'you'); },
+    (pos) => { $('#geo').disabled = false; lastQuery = ''; history.replaceState(null, '', switchParam ? `/find?switch=${encodeURIComponent(switchParam)}` : '/find'); run({ lat: pos.coords.latitude, lng: pos.coords.longitude }, 'you'); },
     (err) => { $('#geo').disabled = false; toast(err.code === 1 ? 'Location is blocked. Please type your pincode instead.' : 'Could not get your location. Please type your pincode.', true); },
     { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
 });
@@ -106,13 +110,16 @@ function openEnquiry(r) {
   const address = h('textarea', { rows: 2, maxLength: 200, placeholder: 'Flat / building / area' }, /\d{6}|[a-z]/i.test(lastQuery) ? lastQuery : '');
   const note = h('input', { type: 'text', maxLength: 200, placeholder: 'e.g. veg only (optional)' });
   const type = (v, l, on) => h('label', {}, h('input', { type: 'radio', name: 't', value: v, checked: on }), h('span', {}, l));
+  const soon = new Date(Date.now() + 864e5 * (switching ? 1 : 0));
+  const todayStr = new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
+  const start = h('input', { type: 'date', min: todayStr, value: new Date(soon.getTime() - soon.getTimezoneOffset() * 6e4).toISOString().slice(0, 10), required: true });
   const go = h('button', { class: 'btn primary block', type: 'submit' }, 'Send request');
   const form = h('form', {
     class: 'stack', onsubmit: async (e) => {
       e.preventDefault();
       go.disabled = true;
       try {
-        const res = await post(`/api/market/${r.id}/enquire`, { name: name.value, phone: phone.value, address: address.value, note: note.value, type: form.t.value });
+        const res = await post(`/api/market/${r.id}/enquire`, { name: name.value, phone: phone.value, address: address.value, note: note.value, type: form.t.value, ...(me ? { startDate: start.value, switchFrom: switching ? { tid: switching.tid, cid: switching.cid } : undefined } : {}) });
         const d = await res.json();
         if (!res.ok) throw new Error(d.error || 'Could not send');
         dlg.replaceChildren(h('div', { class: 'sheet-head' }, h('button', { class: 'btn sm back', type: 'button', onclick: () => dlg.close() }, '← Back'), h('h2', {}, 'Request sent ✓')),
@@ -124,14 +131,32 @@ function openEnquiry(r) {
     h('label', { class: 'field' }, 'Your name', name), h('label', { class: 'field' }, 'Phone number', phone),
     h('label', { class: 'field' }, 'Delivery address', address),
     h('div', { class: 'pills' }, type('normal', 'Normal', true), type('deluxe', '✨ Deluxe', false)),
+    me && h('label', { class: 'field' }, 'Start from', start),
+    me && switching && h('p', { class: 'note-area' }, `Once ${r.name} accepts, your tiffin with ${switching.businessName} stops the day before this date. Until then nothing changes, so you are never left without a tiffin.`),
+    me && !switching && h('p', { class: 'help' }, 'You keep your other tiffin services. Use “Switch” on My tiffin if you want to leave one.'),
     h('label', { class: 'field' }, 'Note', note), go);
   dlg.replaceChildren(h('div', { class: 'sheet-head' }, h('button', { class: 'btn sm back', type: 'button', onclick: () => dlg.close() }, '← Back'), h('h2', {}, `Join ${r.name}`)), h('div', { class: 'sheet-body' }, form));
   dlg.showModal();
 }
 
-fetch('/api/me').then((r) => r.json()).then(({ user }) => {
+let ready = Promise.resolve();
+ready = fetch('/api/me').then((r) => r.json()).then(async ({ user }) => {
   if (!user) return;
-  if (user.role === 'customer') me = user;
+  if (user.role === 'customer') {
+    me = user;
+    if (switchParam) {
+      const [tid, cid] = switchParam.split('.');
+      const my = await fetch('/api/my').then((r) => r.json()).catch(() => null);
+      const s = my?.subscriptions?.find((x) => x.tid === tid && x.cid === cid && !x.ended);
+      if (s) {
+        switching = { tid, cid, businessName: s.businessName };
+        $('#out').before(h('div', { class: 'wrap' }, h('div', { class: 'card stack', id: 'switchbar' },
+          h('strong', {}, `🔀 Switching from ${s.businessName}`),
+          h('p', { class: 'help' }, 'Search below, pick a new service and choose a start date. Your current service stops the day before, once the new one accepts.'),
+          h('a', { class: 'btn sm', href: '/me' }, 'Cancel and go back'))));
+      }
+    }
+  }
   const box = $('#navcta');
   const a = h('a', { class: 'btn primary sm', href: user.role === 'provider' ? '/app' : user.role === 'admin' ? '/admin' : '/me' }, user.role === 'provider' ? 'My kitchen' : user.role === 'admin' ? 'Admin' : 'My tiffin');
   box.replaceChildren(a);

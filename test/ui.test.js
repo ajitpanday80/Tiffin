@@ -217,6 +217,18 @@ for (const [vp, size, extra] of VIEWPORTS) {
     const problems = [];
     problems.push(...(await visit(ctx, `${vp}/me`, '/me', { wait: '.me-grid' })));
     problems.push(...(await visit(ctx, `${vp}/me-stop-open`, '/me', { wait: '.me-grid', prepare: async (p) => { await p.locator('details.stopbox summary').first().click(); } })));
+    problems.push(...(await visit(ctx, `${vp}/find-as-customer`, '/find?q=411045', { wait: '.rcard' })));
+    {
+      const p = await ctx.newPage();
+      await p.goto(`${BASE}/me`);
+      await p.waitForSelector('.me-grid');
+      const href = await p.locator('a:has-text("Switch to another provider")').first().getAttribute('href');
+      await p.goto(`${BASE}${href}&q=411045`);
+      await p.waitForSelector('#switchbar');
+      await p.waitForSelector('.rcard');
+      assert.ok(await p.locator('.joined').count(), 'services the customer already has are marked');
+      await p.close();
+    }
     const page = await ctx.newPage();
     await page.goto(`${BASE}/me`);
     await page.waitForSelector('.me-grid');

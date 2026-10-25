@@ -129,3 +129,59 @@ test('customers cannot touch another customer\'s subscription', async () => {
   const mine = (await call('POST', '/api/my/leaves', { from: L.addDays(today, 8), to: L.addDays(today, 8) }, other)).body;
   assert.equal(mine.applied, 1); // only their own service, never Kitchen A or B
 });
+
+test('marketplace marks services the customer already has, and a switch only happens once the new provider accepts', async () => {
+  const P = await signup('provider', '9811100401', { businessName: 'Old Kitchen' });
+  const Q = await signup('provider', '9811100402', { businessName: 'New Kitchen' });
+  const listing = { enabled: true, area: 'Baner', city: 'Pune', pincode: '411045', radiusKm: 8, lat: 18.56, lng: 73.78 };
+  assert.equal((await call('PUT', '/api/listing', listing, P)).body.visibility.level, 'ok');
+  const q = (await call('PUT', '/api/listing', listing, Q)).body;
+  await call('POST', '/api/customers', { name: 'Mina', phone: '9123400001' }, P);
+  const me = await signup('customer', '9123400001');
+  const near = { lat: 18.56, lng: 73.78 };
+  const find = (cookie) => call('GET', `/api/market/search?lat=${near.lat}&lng=${near.lng}`, null, cookie);
+
+  const anon = (await find()).body.results;
+  assert.ok(anon.every((r) => r.joined === ''), 'anonymous visitors see no "joined" marks');
+  const mine = (await find(me)).body.results;
+  assert.equal(mine.find((r) => r.name === 'Old Kitchen').joined, 'active');
+  assert.equal(mine.find((r) => r.name === 'New Kitchen').joined, '');
+  const sub = (await call('GET', '/api/my', null, me)).body.subscriptions[0];
+
+  // already with them: refused. Switching to the same provider: refused
+  const oldLid = mine.find((r) => r.name === 'Old Kitchen').id;
+  assert.equal((await call('POST', `/api/market/${oldLid}/enquire`, { name: 'Mina', phone: '9123400001' }, me)).status, 409);
+
+  const start = L.addDays(today, 5);
+  const req = await call('POST', `/api/market/${q.id}/enquire`, { name: 'Mina', phone: '9123400001', startDate: start, switchFrom: { tid: sub.tid, cid: sub.cid } }, me);
+  assert.equal(req.status, 200);
+  assert.equal((await call('GET', '/api/my', null, me)).body.requests[0].businessName, 'New Kitchen');
+  // the old provider is untouched while the request is pending, and the new one cannot see who they are leaving
+  assert.equal((await call('GET', '/api/customers', null, P)).body.customers[0].endDate, '');
+  const enq = (await call('GET', '/api/enquiries', null, Q)).body.enquiries[0];
+  assert.equal(enq.switching, true);
+  assert.equal(enq.startDate, start);
+  assert.equal(JSON.stringify(enq).includes(sub.tid), false);
+
+  assert.equal((await call('POST', `/api/enquiries/${enq.id}/accept`, {}, Q)).status, 200);
+  assert.equal((await call('GET', '/api/customers', null, P)).body.customers[0].endDate, L.addDays(start, -1));
+  const subs = (await call('GET', '/api/my', null, me)).body;
+  assert.equal(subs.requests.length, 0);
+  assert.deepEqual(subs.subscriptions.map((s) => s.businessName).sort(), ['New Kitchen', 'Old Kitchen']);
+  assert.equal((await call('GET', '/api/customers', null, Q)).body.customers[0].startDate, start);
+});
+
+test('a join request can be cancelled by the customer; a provider listed by pincode only is flagged', async () => {
+  const R = await signup('provider', '9811100403', { businessName: 'Pin Kitchen' });
+  const only = (await call('PUT', '/api/listing', { enabled: true, area: 'Aundh', pincode: '411007', radiusKm: 5 }, R)).body;
+  assert.equal(only.visibility.level, 'warn'); // no coordinates (geocoder is off in tests): found by pincode only
+  assert.equal((await call('PUT', '/api/listing', { enabled: false, area: 'Aundh', pincode: '411007' }, R)).body.visibility.level, 'off');
+  const S = await signup('provider', '9811100404', { businessName: 'Cancel Kitchen' });
+  const lid = (await call('PUT', '/api/listing', { enabled: true, area: 'Kothrud', pincode: '411038', radiusKm: 5, lat: 18.5, lng: 73.8 }, S)).body.id;
+  await call('POST', '/api/customers', { name: 'Zed', phone: '9123400002' }, R);
+  const me = await signup('customer', '9123400002');
+  await call('POST', `/api/market/${lid}/enquire`, { name: 'Zed', phone: '9123400002' }, me);
+  const r = (await call('GET', '/api/my', null, me)).body.requests[0];
+  assert.equal((await call('DELETE', `/api/my/requests/${r.tid}/${r.id}`, {}, me)).body.requests.length, 0);
+  assert.equal((await call('GET', '/api/enquiries', null, S)).body.enquiries.length, 0);
+});

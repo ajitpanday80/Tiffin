@@ -34,6 +34,7 @@ function enquiryCard(list) {
     h('h2', {}, `📩 New requests (${list.length})`),
     list.map((e) => h('div', { class: 'card', style: { background: 'var(--soft)', boxShadow: 'none' } },
       h('div', { class: 'row-title' }, h('strong', {}, e.name), h('span', { class: `badge ${e.type}` }, e.type === 'deluxe' ? '✨ Deluxe' : 'Normal')),
+      (e.switching || e.startDate) && h('div', { class: 'note-area' }, [e.switching && '🔀 Switching from another provider. ', e.startDate && `Wants to start ${fmt(e.startDate)}.`].filter(Boolean).join('')),
       h('div', { class: 'muted' }, e.phone), e.address && h('div', { class: 'muted addr' }, e.address), e.note && h('div', { class: 'note' }, `📝 ${e.note}`),
       h('div', { class: 'row-actions', style: { marginTop: '10px' } },
         h('button', { class: 'btn ok sm grow', onclick: async (ev) => {
@@ -86,6 +87,7 @@ function listingCard(l) {
     },
   },
     h('h2', {}, '🔎 Your marketplace listing'),
+    h('p', { class: `vis ${l.visibility.level}` }, `${l.visibility.level === 'ok' ? '✅' : l.visibility.level === 'warn' ? '⚠️' : '🚫'} ${l.visibility.text}`),
     h('p', { class: 'help' }, 'Listing is free. Customers near you can find you, call you or send a request to join.'),
     h('div', { class: 'tagpick' }, h('label', {}, on, h('span', {}, 'Show my kitchen in the marketplace'))),
     !l.hasPhone && h('p', { class: 'note-area' }, 'Tip: add your phone in Settings so customers can call you.'),

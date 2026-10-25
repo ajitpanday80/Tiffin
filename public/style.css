@@ -249,3 +249,9 @@ details.stopbox, details.pastbox { border-top: 1px solid var(--line); padding-to
 details.pastbox { border-top: 0; padding-top: 16px; }
 details.stopbox summary, details.pastbox summary { cursor: pointer; font-weight: 700; color: var(--muted); }
 details.stopbox[open] summary, details.pastbox[open] summary { margin-bottom: 12px; }
+
+/* listing visibility + marketplace joined badge */
+.vis { margin: 0; padding: 10px 12px; border-radius: 12px; font-weight: 600; font-size: 14px; background: var(--ok-bg); color: var(--ok); }
+.vis.warn { background: #fff3d6; color: #8a5a00; }
+.vis.off { background: var(--bad-bg); color: var(--bad); }
+.joined { margin: 0; font-weight: 700; color: var(--ok); }

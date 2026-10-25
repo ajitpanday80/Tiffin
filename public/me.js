@@ -81,6 +81,7 @@ function subCard(sub) {
           try { replace(await api('DELETE', `/api/my/${sub.tid}/${sub.cid}/leaves/${l.id}`)); toast('Leave cancelled'); } catch (err) { errToast(err); }
         }, 'Yes, cancel') }, 'Cancel')))),
     sub.businessPhone && h('a', { class: 'btn block', href: `tel:${sub.businessPhone}` }, `📞 Call ${sub.businessName}`),
+    !sub.stopping && h('a', { class: 'btn block', href: `/find?switch=${sub.tid}.${sub.cid}` }, '🔀 Switch to another provider'),
     !sub.stopping && h('details', { class: 'stopbox' }, h('summary', {}, 'Stop with this provider'),
       h('div', { class: 'stack' },
         h('p', { class: 'help' }, 'Not your tiffin service, or you moved on? You are not tied to any provider. Choose your last tiffin day and they are told straight away. You can undo this until that day.'),
@@ -97,6 +98,18 @@ function pastSection(past) {
     h('div', { class: 'stack' }, past.map((p) => h('div', { class: 'row-top', style: { alignItems: 'center' } },
       h('div', { class: 'row-main' }, h('strong', {}, p.businessName), h('div', { class: 'muted' }, `Ended ${fmt(p.endDate)}${p.endedBy === 'customer' ? ' (you stopped it)' : ''}`))))),
     h('p', { class: 'help' }, 'Want to start again? ', h('a', { href: '/find' }, 'Find a tiffin service'), ' and send a request to join.'));
+}
+
+// join / switch requests that are waiting for the other provider to accept
+function requestsCard(reqs) {
+  if (!reqs?.length) return null;
+  return h('div', { class: 'card stack' }, h('h2', { style: { margin: 0 } }, '⏳ Waiting for a reply'),
+    reqs.map((q) => h('div', { class: 'row-top', style: { alignItems: 'center' } },
+      h('div', { class: 'row-main' }, h('strong', {}, q.businessName),
+        h('div', { class: 'muted' }, `${q.switching ? 'Switch' : 'Join'} request${q.startDate ? ` · from ${fmt(q.startDate)}` : ''}. Nothing changes until they accept.`)),
+      h('button', { class: 'btn sm', type: 'button', onclick: (e) => ask(e.currentTarget, `Cancel your request to ${q.businessName}?`, async () => {
+        try { data.requests = (await api('DELETE', `/api/my/requests/${q.tid}/${q.id}`)).requests; draw(); toast('Request cancelled'); } catch (err) { errToast(err); }
+      }, 'Yes, cancel') }, 'Cancel'))));
 }
 
 // shown only when you have 2+ active services: one form for all of them
@@ -164,7 +177,9 @@ function draw() {
       h('p', { class: 'me-hi' }, 'Hi ', h('b', {}, data.name), '! 👋'),
       h('div', { class: 'me-grid' },
         h('div', { class: 'stack' },
+          requestsCard(data.requests),
           allLeaveCard(active),
+          active.length > 0 && h('a', { class: 'btn block', href: '/find' }, '➕ Add another tiffin service'),
           active.length ? active.map(subCard) : h('div', { class: 'card empty' }, h('div', { class: 'big' }, '🍽'), h('p', {}, past.length ? 'You have no active tiffin service right now.' : 'No tiffin service found for your number right now.'), h('a', { class: 'btn primary', href: '/find', style: { marginTop: '12px' } }, 'Find a tiffin service')),
           pastSection(past)),
         h('aside', { class: 'stack' },

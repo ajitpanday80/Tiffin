@@ -499,7 +499,7 @@ const findListing = (lid) => {
   throw bad('This listing is not available', 404);
 };
 
-route('GET', '/api/market/search', null, async ({ query, ip }) => {
+route('GET', '/api/market/search', null, async ({ query, ip, user }) => {
   if (searchLimiter.blocked(ip)) throw bad('Too many searches. Please wait a minute.', 429);
   searchLimiter.fail(ip);
   const q = str(query.q, 200);
@@ -525,10 +525,16 @@ route('GET', '/api/market/search', null, async ({ query, ip }) => {
     if (f.sponsored) M.track(db, f.tid, 'spImp');
   }
   if (found.length) store.save();
-  return { mode: origin ? 'distance' : 'pincode', label, pin, results: found.map(M.card) };
+  // A signed-in customer sees which services they already have (and which they left).
+  const mine = user?.role === 'customer' ? subscriptionsFor(user) : [];
+  const joined = (tid) => {
+    const subs = mine.filter((s) => s.tid === tid);
+    return subs.some((s) => !isEnded(s.c)) ? 'active' : subs.length ? 'ended' : '';
+  };
+  return { mode: origin ? 'distance' : 'pincode', label, pin, results: found.map((f) => ({ ...M.card(f), joined: joined(f.tid) })) };
 });
 
-route('POST', '/api/market/:lid/enquire', null, ({ params, body, ip }) => {
+route('POST', '/api/market/:lid/enquire', null, ({ params, body, ip, user }) => {
   const { tid, t } = findListing(params.lid);
   if (enquiryLimiter.blocked(ip)) throw bad('Too many requests. Please try again later.', 429);
   const name = str(body.name, 60);
@@ -536,17 +542,51 @@ route('POST', '/api/market/:lid/enquire', null, ({ params, body, ip }) => {
   if (!name) throw bad('Please enter your name');
   if (!validPhone(phone)) throw bad('Please enter a valid phone number');
   enquiryLimiter.fail(ip);
+  const mine = user?.role === 'customer' ? subscriptionsFor(user) : [];
+  if (mine.some((s) => s.tid === tid && !isEnded(s.c))) throw bad(`You are already with ${t.settings.businessName}.`, 409);
+  let switchFrom = null;
+  if (user?.role === 'customer' && body.switchFrom) {
+    const from = mine.find((s) => s.tid === body.switchFrom.tid && s.c.id === body.switchFrom.cid && !isEnded(s.c));
+    if (!from) throw bad('The service you want to switch from was not found.');
+    if (from.tid === tid) throw bad('Pick a different provider to switch to.');
+    switchFrom = { tid: from.tid, cid: from.c.id };
+  }
+  const today = L.todayStr();
+  const startDate = L.isDate(body.startDate) && body.startDate >= today && body.startDate <= L.addDays(today, 120) ? body.startDate : '';
   if (t.enquiries.some((e) => e.status === 'new' && phoneKey(e.phone) === phoneKey(phone))) return { ok: true }; // already waiting; don't spam
-  t.enquiries.unshift({ id: newId(), name, phone, address: str(body.address, 200), type: body.type === 'deluxe' ? 'deluxe' : 'normal', note: str(body.note, 200), at: Date.now(), status: 'new' });
+  t.enquiries.unshift({ id: newId(), name, phone, address: str(body.address, 200), type: body.type === 'deluxe' ? 'deluxe' : 'normal', note: str(body.note, 200), at: Date.now(), status: 'new', uid: user?.role === 'customer' ? user.id : '', startDate, switchFrom });
   if (t.enquiries.length > 200) t.enquiries = t.enquiries.filter((e, i) => i < 200 || e.status === 'new');
   M.track(db, tid, 'enquiry');
   store.save();
-  tg.notify(t, `📩 <b>New enquiry</b> from the marketplace\n${esc(name)} · ${esc(phone)}${body.address ? `\n📍 ${esc(str(body.address, 200))}` : ''}\nOpen the app → Grow to add them.`);
+  tg.notify(t, `📩 <b>New ${switchFrom ? 'switch request' : 'enquiry'}</b> from the marketplace${startDate ? ` (wants to start ${L.fmtDate(startDate)})` : ''}\n${esc(name)} · ${esc(phone)}${body.address ? `\n📍 ${esc(str(body.address, 200))}` : ''}\nOpen the app → Grow to add them.`);
   return { ok: true };
 });
 
 // ----- provider: listing, enquiries, ads -----
-const listingOut = (t) => ({ ...t.listing, listed: M.isListed(t), tags: t.listing.tags, options: { tags: TAGS, meals: MEALS } });
+// Why a provider is (or is not) found by customers, in words they can act on.
+function visibility(t) {
+  const l = t.listing;
+  if (l.suspended) return { level: 'off', text: 'Hidden by the platform. Contact support.' };
+  if (!l.enabled) return { level: 'off', text: 'Not visible. Switch on “Show my kitchen in the marketplace” and save.' };
+  if (l.lat == null && !l.pincode) return { level: 'off', text: 'Not visible. Add your pincode or set your location.' };
+  if (l.lat == null) return { level: 'warn', text: 'Customers are found only by pincode. Set your location so people searching by address or GPS find you too.' };
+  return { level: 'ok', text: `Visible to customers within ${l.radiusKm} km${l.approx ? ' of your pincode area' : ''}.` };
+}
+const listingOut = (t) => ({ ...t.listing, listed: M.isListed(t), visibility: visibility(t), tags: t.listing.tags, options: { tags: TAGS, meals: MEALS } });
+
+// A listed provider with a pincode but no coordinates would be invisible to anyone searching by address or GPS.
+// Work the position out from the pincode (once; results are cached).
+async function ensureCoords(t) {
+  const l = t.listing;
+  if (!l.enabled || l.lat != null || !l.pincode) return false;
+  const g = await geo.lookup(l.pincode);
+  if (!g || l.lat != null) return false;
+  l.lat = snap(g.lat);
+  l.lng = snap(g.lng);
+  l.approx = true;
+  store.save();
+  return true;
+}
 
 route('GET', '/api/listing', 'provider', ({ t, user }) => ({
   ...listingOut(t),
@@ -555,7 +595,7 @@ route('GET', '/api/listing', 'provider', ({ t, user }) => ({
   hasPhone: !!t.settings.businessPhone,
 }));
 
-route('PUT', '/api/listing', 'provider', ({ t, body: b }) => {
+route('PUT', '/api/listing', 'provider', async ({ t, body: b }) => {
   const l = t.listing;
   const pin = str(b.pincode, 8);
   if (pin && !PIN_RE.test(pin)) throw bad('Pincode should be 4 to 8 digits');
@@ -573,16 +613,19 @@ route('PUT', '/api/listing', 'provider', ({ t, body: b }) => {
     lat: l.lat,
     lng: l.lng,
   };
-  if (b.clearLocation) next.lat = next.lng = null;
+  if (l.approx && pin !== l.pincode && !(b.lat != null && validCoords(Number(b.lat), Number(b.lng)))) next.lat = next.lng = null; // pincode changed: recompute
+  if (b.clearLocation) { next.lat = next.lng = null; next.approx = false; }
   else if (b.lat != null && validCoords(Number(b.lat), Number(b.lng))) {
     next.lat = snap(Number(b.lat));
     next.lng = snap(Number(b.lng));
+    next.approx = false;
   }
   const enabled = !!b.enabled;
   if (enabled && !next.area) throw bad('Please add your area or locality so customers know where you are');
   if (enabled && next.lat == null && !next.pincode) throw bad('Add your pincode or set your location to be listed');
   Object.assign(l, next, { enabled });
   store.save();
+  await ensureCoords(t);
   return listingOut(t);
 });
 
@@ -594,12 +637,29 @@ route('POST', '/api/listing/locate', 'provider', async ({ body }) => {
   return { lat: snap(g.lat), lng: snap(g.lng), label: g.label };
 });
 
-route('GET', '/api/enquiries', 'provider', ({ t }) => ({ enquiries: t.enquiries.filter((e) => e.status === 'new') }));
+// The provider never learns which other provider a switching customer is leaving.
+const enquiryOut = (e) => ({ id: e.id, name: e.name, phone: e.phone, address: e.address, type: e.type, note: e.note, at: e.at, startDate: e.startDate || '', switching: !!e.switchFrom, hasAccount: !!e.uid });
+route('GET', '/api/enquiries', 'provider', ({ t }) => ({ enquiries: t.enquiries.filter((e) => e.status === 'new').map(enquiryOut) }));
 
 route('POST', '/api/enquiries/:id/accept', 'provider', ({ t, params }) => {
   const e = orNotFound(t.enquiries.find((x) => x.id === params.id && x.status === 'new'), 'Enquiry not found');
-  const c = addCustomer(t, cleanCustomer({ name: e.name, phone: e.phone, address: e.address, type: e.type, note: e.note }));
+  const today = L.todayStr();
+  const start = e.startDate && e.startDate > today ? e.startDate : today;
+  const c = addCustomer(t, cleanCustomer({ name: e.name, phone: e.phone, address: e.address, type: e.type, note: e.note, startDate: start }));
   e.status = 'added';
+  // A customer who is switching leaves the old provider the day before the new one starts, but only now that
+  // the new provider has said yes, so they are never left without a tiffin.
+  const from = e.switchFrom && db.tenants[e.switchFrom.tid];
+  const old = from?.customers.find((x) => x.id === e.switchFrom.cid);
+  if (old && !isEnded(old) && phoneKey(old.phone) === phoneKey(e.phone)) {
+    const last = L.addDays(start, -1);
+    if (!old.endDate || old.endDate > last) {
+      old.endDate = last;
+      old.endedBy = 'customer';
+      old.endedAt = Date.now();
+      tg.notify(from, `🔀 <b>${esc(old.name)}</b> is moving to another tiffin service. Last tiffin day: <b>${L.fmtDate(last)}</b>.`);
+    }
+  }
   store.save();
   return c;
 });
@@ -725,7 +785,20 @@ const customerTelegram = (user) => {
   return { configured: tg.configured, linked: tg.configured && !!user.telegramChatId, botAt: botVars()['{{BOT_AT}}'], botUrl: botVars()['{{BOT_URL}}'], code: user.linkCode };
 };
 
+const myRequests = (user) =>
+  Object.entries(db.tenants).flatMap(([tid, t]) =>
+    t.enquiries.filter((e) => e.status === 'new' && e.uid === user.id).map((e) => ({ tid, id: e.id, businessName: t.settings.businessName, startDate: e.startDate || '', switching: !!e.switchFrom, at: e.at })));
+
+route('DELETE', '/api/my/requests/:tid/:id', 'customer', ({ user, params }) => {
+  const e = db.tenants[params.tid]?.enquiries.find((x) => x.id === params.id && x.uid === user.id && x.status === 'new');
+  if (!e) throw bad('Request not found', 404);
+  e.status = 'cancelled';
+  store.save();
+  return { requests: myRequests(user) };
+});
+
 route('GET', '/api/my', 'customer', ({ user }) => ({
+  requests: myRequests(user),
   name: user.name,
   telegram: customerTelegram(user),
   subscriptions: subscriptionsFor(user).map(({ tid, t, c }) => ({ tid, cid: c.id, ...customerView(t, c) })),
@@ -981,4 +1054,6 @@ server.listen(PORT, HOST, () => {
   if (!tg.configured) console.log('Telegram alerts are off (set TELEGRAM_BOT_TOKEN to enable).');
   tg.start();
   setInterval(() => tg.tick(), 30_000).unref();
+  // Providers listed before this fix (pincode but no position) become findable by address / GPS search.
+  (async () => { for (const t of Object.values(db.tenants)) await ensureCoords(t).catch(() => {}); })();
 });
