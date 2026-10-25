@@ -674,7 +674,7 @@ async function handleApi(req, res, url) {
       params: r.re.exec(url.pathname).groups || {},
       query: Object.fromEntries(url.searchParams),
       body: mutating ? await readBody(req) : {},
-      ip: String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress,
+      ip: String(req.headers['x-forwarded-for'] || '').split(',').pop().trim() || req.socket.remoteAddress, // last entry = the one our own proxy added; earlier ones can be forged
       setCookie: (tok, maxAge) => (setCookie = cookieFor(tok, maxAge)),
     };
     send(200, (await r.handler(ctx)) ?? {});

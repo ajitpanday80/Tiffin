@@ -1,0 +1,20 @@
+# For servers that already run nginx (so Caddy would clash on ports 80/443).
+# 1. Copy to /etc/nginx/sites-available/mytiffin.online, symlink into sites-enabled, then: nginx -t && systemctl reload nginx
+# 2. Add HTTPS:  certbot --nginx -d mytiffin.online -d www.mytiffin.online   (certbot edits this file and adds the redirect)
+# If you changed PORT in /root/tiffin/.env, change the port in proxy_pass too.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name mytiffin.online www.mytiffin.online;
+
+    client_max_body_size 1m;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # overwrite (do not append to) any X-Forwarded-For sent by the visitor, so it cannot be forged
+        proxy_set_header X-Forwarded-For $remote_addr;
+    }
+}

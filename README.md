@@ -10,7 +10,7 @@ A light, mobile-first web app for tiffin providers.
 - **Website** (`/`) with login / sign-up (`/login`, `/signup`), a **help guide** (`/help`: provider quick start, Telegram setup, customer guide) and a **blog** (`/blog`, 8 posts in `content/posts.js`, server-rendered, with `/sitemap.xml` and `/robots.txt`).
 - Phone + password accounts, sessions last **30 days** (sliding). Many providers can share one install; each only sees their own data.
 
-No dependencies, no build step, one JSON file for data. Needs **Node 20+**.
+No dependencies, no build step, one JSON file for data. Needs **Node 18 or newer** (tested on 18.19 and 22).
 
 ## Run it
 
@@ -58,25 +58,32 @@ One bot serves all providers; the code ties a chat to one provider.
 
 ## Install on your server (`/root/tiffin`) with `mytiffin.online`
 
-On the server (Linux with systemd, Node 20+ installed), as root, from a checkout of this repo:
+On the server (Linux with systemd and Node 18+), as root. Clone straight into `/root/tiffin` and run the installer from there:
 
 ```bash
-git clone -b claude/happy-gauss-j00emo https://github.com/ajitpanday80/Tiffin.git /root/tiffin-src   # or use your merged main branch
-sudo bash /root/tiffin-src/deploy/install.sh
+git clone -b claude/happy-gauss-j00emo https://github.com/ajitpanday80/Tiffin.git /root/tiffin   # or your merged main branch
+cd /root/tiffin && sudo bash deploy/install.sh
 ```
 
-This copies the app to **`/root/tiffin`**, creates `/root/tiffin/.env` (mode 600) from `deploy/env.example`, and starts it as the `tiffin` systemd service (restarts automatically, starts on boot). Re-running the script deploys an update; it never overwrites `/root/tiffin/data` or `.env`. Data lives in `/root/tiffin/data/db.json`.
+There is no `npm install` step (no dependencies). The installer creates `/root/tiffin/.env` (mode 600) from `deploy/env.example` and starts the app as the `tiffin` systemd service (restarts automatically, starts on boot). Re-running it deploys an update and never overwrites `/root/tiffin/data` or `.env`. Data lives in `/root/tiffin/data/db.json`. (If you cloned somewhere else, the installer copies the app into `/root/tiffin` for you.)
+
+**Already running other apps on this server?** Check two things before going live:
+- **Port:** the app listens on `127.0.0.1:3000`. If another program uses 3000, the installer stops and tells you; set `PORT=` in `/root/tiffin/.env` (e.g. `3100`) and use the same port in your proxy config.
+- **Web server:** if nginx or Apache already owns ports 80/443, do **not** install Caddy. Use `deploy/nginx.conf.example` (step 3).
 
 1. **Edit `/root/tiffin/.env`**: set `GEOCODER_CONTACT` to your email, and `TELEGRAM_BOT_TOKEN` if you want Telegram. Then `systemctl restart tiffin`. The defaults already set `PUBLIC_URL=https://mytiffin.online`, `FORCE_HTTPS=1`, `TZ=Asia/Kolkata` and `HOST=127.0.0.1`, which keeps the app reachable only through the HTTPS proxy.
 2. **DNS:** `A` records for `mytiffin.online` and `www` pointing at the server.
-3. **HTTPS (required):** browsers only allow the marketplace's GPS button, service workers and "install to home screen" over HTTPS, and passwords must not travel in plain text. Install [Caddy](https://caddyserver.com/docs/install), copy `deploy/Caddyfile` to `/etc/caddy/Caddyfile`, and `systemctl reload caddy`. Caddy obtains and renews the certificate itself and sets `X-Forwarded-Proto`, which the app needs. (nginx + certbot works too if it sends that header and `Host`.)
+3. **HTTPS (required):** browsers only allow the marketplace's GPS button, service workers and "install to home screen" over HTTPS, and passwords must not travel in plain text.
+   - *Nothing else uses 80/443:* install [Caddy](https://caddyserver.com/docs/install), copy `deploy/Caddyfile` to `/etc/caddy/Caddyfile`, `systemctl reload caddy`. Caddy gets and renews the certificate itself.
+   - *nginx already runs here:* copy `deploy/nginx.conf.example` to `/etc/nginx/sites-available/mytiffin.online`, symlink it into `sites-enabled`, `nginx -t && systemctl reload nginx`, then `certbot --nginx -d mytiffin.online -d www.mytiffin.online`. The file overwrites `X-Forwarded-For` and sets `X-Forwarded-Proto`; the app needs both (login rate limiting and secure cookies).
 4. **Admin login:** `cd /root/tiffin && node scripts/make-admin.js <phone> '<long password>' && systemctl restart tiffin`, then sign in at `https://mytiffin.online/login?role=admin`.
-5. **Updating later:** `cd /root/tiffin-src && git pull && sudo bash deploy/install.sh` (keeps your data and `.env`).
+5. **Updating later:** `cd /root/tiffin && git pull && sudo bash deploy/install.sh` (keeps your data and `.env`).
 6. **Day to day:** `journalctl -u tiffin -f` (logs), `systemctl restart tiffin`, and back up `/root/tiffin/data/db.json` (e.g. a nightly copy off the server).
+7. **Run the tests (optional):** `npm test` (works on Node 18+; it needs a free local port and does not touch your data).
 
 The service runs as root because the path is under `/root`; it is sandboxed with `NoNewPrivileges`, `ProtectSystem=strict` and a write-access list limited to the data folder. A dedicated unprivileged user (e.g. `/opt/tiffin`) would be safer if you can change the location.
 
-I could not test the systemd/Caddy parts or your real domain from this sandbox; I tested the install script's copy/permission/update behaviour, and that the installed copy serves, redirects http to https and listens only on localhost. After deploying, check `https://mytiffin.online`, `/sitemap.xml` (https URLs), sign-up, and the marketplace GPS button.
+Tested here: the whole test suite on Node 18.19.1 and 22, the installer's copy/permission/update/port-conflict behaviour, and that the installed copy serves, redirects http to https and listens only on localhost. **Not tested** (no access to your server): systemd, Caddy, nginx/certbot and your real domain. After deploying, check `https://mytiffin.online`, `/sitemap.xml` (https URLs), sign-up, and the marketplace GPS button.
 
 ## Deploying
 

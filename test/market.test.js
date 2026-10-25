@@ -4,9 +4,10 @@ import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Geocoder, haversineKm, snap } from '../lib/geo.js';
 
-const ROOT = path.resolve(import.meta.dirname, '..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 43000 + Math.floor(Math.random() * 2000);
 const BASE = `http://127.0.0.1:${PORT}`;
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tiffin-market-'));

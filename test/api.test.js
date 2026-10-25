@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as L from '../lib/logic.js';
 
 const PORT = 41000 + Math.floor(Math.random() * 2000);
@@ -23,7 +24,7 @@ const call = async (method, url, body, { auth = true, as } = {}) => {
 
 before(async () => {
   proc = spawn(process.execPath, ['server.js'], {
-    cwd: path.resolve(import.meta.dirname, '..'),
+    cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'),
     env: { ...process.env, PORT, DATA_DIR: dir, TELEGRAM_BOT_TOKEN: '' },
   });
   await new Promise((res, rej) => {
@@ -180,4 +181,18 @@ test('closed weekday removes the day', async () => {
 test('path traversal is blocked', async () => {
   const r = await fetch(`${BASE}/..%2Fserver.js`);
   assert.equal(r.status, 404);
+});
+
+test('rate limiting cannot be dodged with a forged X-Forwarded-For', async () => {
+  // each attempt uses a different phone and a different fake leading address; only the last entry (our proxy's) counts
+  let last;
+  for (let i = 0; i < 10; i++) {
+    const r = await fetch(`${BASE}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': `10.0.0.${i}, 203.0.113.9` },
+      body: JSON.stringify({ role: 'provider', phone: `98000000${String(i).padStart(2, '0')}`, password: 'wrong-pass' }),
+    });
+    last = r.status;
+  }
+  assert.equal(last, 429);
 });
