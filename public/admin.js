@@ -43,7 +43,7 @@ function ordersView() {
     h('div', { class: 'muted' }, `${o.planName} · ${o.days} days · ${o.radiusKm} km · ${money(o.price)} · ref ${o.ref}`),
     h('div', { class: 'muted' }, `Ordered ${date(o.createdAt)}${o.phone ? ` · ${o.phone}` : ''}${o.endsAt ? ` · runs ${date(o.startsAt)} → ${date(o.endsAt)}` : ''}`),
     o.status === 'pending' && h('div', { class: 'grid2' },
-      h('button', { class: 'btn ok sm', onclick: () => confirm(`Payment of ${money(o.price)} for ${o.provider} received?`) && act(() => api('POST', `/api/admin/orders/${o.id}/paid`), 'Ad activated') }, 'Payment received'),
+      h('button', { class: 'btn ok sm', onclick: (e) => ask(e.currentTarget, `Payment of ${money(o.price)} for ${o.provider} received?`, () => act(() => api('POST', `/api/admin/orders/${o.id}/paid`), 'Ad activated'), 'Yes, received') }, 'Payment received'),
       h('button', { class: 'btn sm danger', onclick: () => act(() => api('POST', `/api/admin/orders/${o.id}/reject`), 'Rejected') }, 'Reject'))));
 }
 
@@ -53,7 +53,7 @@ function plansView() {
     h('div', { class: 'card stack' }, h('h2', {}, 'Ad plans'),
       h('p', { class: 'help' }, 'Providers choose from these. “Radius” is how far from the kitchen the ad is shown, so an ad only ever reaches nearby customers. You set the prices; there are no defaults.'),
       data.plans.length ? data.plans.map((p) => h('div', { class: 'plan' }, h('div', {}, h('b', {}, p.name), h('div', { class: 'muted' }, `${p.days} days · ${p.radiusKm} km`)),
-        h('div', { style: { textAlign: 'right' } }, h('div', { class: 'price-big' }, `${data.currency}${p.price}`), h('button', { class: 'btn sm danger', onclick: () => confirm('Delete this plan? Existing orders are not affected.') && act(() => api('DELETE', `/api/admin/plans/${p.id}`)) }, 'Delete')))) : h('p', { class: 'muted' }, 'No plans yet. Add one below.')),
+        h('div', { style: { textAlign: 'right' } }, h('div', { class: 'price-big' }, `${data.currency}${p.price}`), h('button', { class: 'btn sm danger', onclick: (e) => ask(e.currentTarget, 'Delete this plan? Existing orders are not affected.', () => act(() => api('DELETE', `/api/admin/plans/${p.id}`)), 'Delete') }, 'Delete')))) : h('p', { class: 'muted' }, 'No plans yet. Add one below.')),
     h('form', { class: 'card stack', onsubmit: (e) => { e.preventDefault(); act(() => api('POST', '/api/admin/plans', { name: f.name.value, days: f.days.value, radiusKm: f.radius.value, price: f.price.value }), 'Plan added'); } },
       h('h2', {}, 'Add a plan'), h('label', { class: 'field' }, 'Name', f.name),
       h('div', { class: 'grid2' }, h('label', { class: 'field' }, 'Days', f.days), h('label', { class: 'field' }, 'Radius (km)', f.radius)),
@@ -69,7 +69,7 @@ function providersView() {
 }
 
 function resetView() {
-  const role = h('select', { id: 'rrole' }, h('option', { value: 'provider' }, 'Tiffin provider'), h('option', { value: 'customer' }, 'Customer'));
+  const role = pick([['provider', 'Tiffin provider'], ['customer', 'Customer']], 'provider');
   const phone = h('input', { type: 'tel', id: 'rphone', placeholder: 'Their phone number', inputMode: 'tel' });
   const out = h('div', { class: 'stack' });
   return h('form', { class: 'card stack', onsubmit: async (e) => {
@@ -82,7 +82,7 @@ function resetView() {
     } catch (err) { out.replaceChildren(); if (err.message !== 'login') toast(err.message, true); }
   } },
   h('h2', {}, 'Reset a login'), h('p', { class: 'help' }, 'Make sure you are really talking to the account owner first (a phone call, or a Telegram chat from the number on the account).'),
-  h('label', { class: 'field' }, 'Account type', role), h('label', { class: 'field' }, 'Phone', phone), h('button', { class: 'btn primary', type: 'submit' }, 'Create reset link'), out);
+  h('div', { class: 'field' }, 'Account type', role), h('label', { class: 'field' }, 'Phone', phone), h('button', { class: 'btn primary', type: 'submit' }, 'Create reset link'), out);
 }
 
 function settingsView() {

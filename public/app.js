@@ -68,7 +68,13 @@ async function act(fn, okMsg) {
 // Sharing goes through Telegram only (or copy and paste).
 const tgShare = (text, url) => `https://t.me/share/url?url=${encodeURIComponent(url || location.origin)}&text=${encodeURIComponent(text)}`;
 async function copyText(text, done = 'Copied') {
-  try { await navigator.clipboard.writeText(text); toast(done); } catch { prompt('Copy this', text); }
+  try { await navigator.clipboard.writeText(text); toast(done); } catch {
+    const t = h('textarea', { style: { position: 'fixed', opacity: '0' } }, text);
+    document.body.append(t); t.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch {}
+    t.remove();
+    toast(ok ? done : 'Could not copy. Select the text and copy it by hand.', !ok);
+  }
 }
 // two buttons: share the message on Telegram, or copy it
 const shareRow = ({ text, url, copy }) => h('div', { class: 'grid2' },
@@ -276,11 +282,10 @@ function custCard(c) {
 function sheet(title, ...body) {
   const dlg = $('#sheet');
   dlg.replaceChildren(
-    h('div', { class: 'sheet-head' }, h('h2', {}, title), h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: () => dlg.close() }, '✕')),
+    h('div', { class: 'sheet-head' }, h('button', { class: 'btn sm back', type: 'button', onclick: () => dlg.close() }, '← Back'), h('h2', {}, title)),
     h('div', { class: 'sheet-body' }, ...body));
   if (!dlg.open) dlg.showModal();
 }
-$('#sheet').addEventListener('click', (e) => e.target === e.currentTarget && e.currentTarget.close());
 $('#sheet').addEventListener('close', () => { if (current() === 'customers' && S.settings) refresh(true); });
 
 function openCustomer(existing) {
@@ -333,10 +338,9 @@ function openCustomer(existing) {
         existing.phone && h('p', { class: 'help' }, existing.hasAccount ? '✓ Has a login (phone + password).' : `They can also create a login at ${location.origin}/signup using ${existing.phone}.`),
         shareRow({ text: msg, url: link, copy: link })),
       existing.hasAccount && resetCard(existing),
-      h('button', { class: 'btn danger', onclick: async () => {
-        if (!confirm(`Delete ${existing.name} permanently? Their delivery history will be removed too.\n\nTip: use “Last day” under More options to just stop service.`)) return;
+      h('button', { class: 'btn danger', onclick: (e) => ask(e.currentTarget, `Delete ${existing.name} permanently? Their delivery history will be removed too. Tip: use “Last day” under More options to just stop service.`, async () => {
         if (await act(() => api('DELETE', `/api/customers/${existing.id}`), 'Deleted')) { $('#sheet').close(); }
-      } }, 'Delete customer'));
+      }, 'Delete for good') }, 'Delete customer'));
   }
   sheet(existing ? 'Edit customer' : 'New customer', ...parts);
   if (!existing) name.focus();
@@ -433,7 +437,7 @@ function renderSettings() {
     currency: h('input', { type: 'text', value: s.currency, maxLength: 4 }),
     morningTime: h('input', { type: 'time', value: s.morningTime }),
     eveningTime: h('input', { type: 'time', value: s.eveningTime }),
-    cutoffHour: h('select', {}, [[0, 'Not allowed — from tomorrow only']].concat([6, 7, 8, 9, 10, 11, 12].map((n) => [n, `Until ${n > 12 ? n - 12 : n}:00 ${n >= 12 ? 'pm' : 'am'}`])).map(([v, l]) => h('option', { value: v, selected: v === s.cutoffHour }, l))),
+    cutoffHour: pick([[0, 'Not allowed — from tomorrow only']].concat([6, 7, 8, 9, 10, 11, 12].map((n) => [n, `Until ${n}:00 ${n >= 12 ? 'pm' : 'am'}`])), s.cutoffHour),
   };
   const closed = ['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((l, i) => h('label', {}, h('input', { type: 'checkbox', value: i, checked: s.closedDays.includes(i) }), h('span', { title: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][i] }, l)));
   const save = h('button', { class: 'btn primary block', type: 'submit' }, 'Save settings');
@@ -445,7 +449,7 @@ function renderSettings() {
         !tg.linked && h('div', { class: 'help' }, 'Connect in 3 steps:', h('ol', {}, h('li', {}, 'Open Telegram and search for ', tg.botUrl && tg.botUrl.startsWith('https://') ? h('a', { href: tg.botUrl, target: '_blank', rel: 'noopener' }, h('b', {}, tg.botAt)) : h('b', {}, tg.botAt)), h('li', {}, 'Tap Start, then send: ', h('code', {}, `/start ${tg.code}`)), h('li', {}, 'Come back here and refresh this page'))),
         tg.linked && h('div', { class: 'grid2' },
           h('button', { type: 'button', class: 'btn sm', onclick: () => act(() => api('POST', '/api/telegram/test'), 'Test message sent') }, 'Send test'),
-          h('button', { type: 'button', class: 'btn sm danger', onclick: async () => { if (confirm('Disconnect Telegram alerts?')) { S.settings = (await act(() => api('POST', '/api/telegram/unlink'))) || S.settings; refresh(); } } }, 'Disconnect')),
+          h('button', { type: 'button', class: 'btn sm danger', onclick: (e) => ask(e.currentTarget, 'Disconnect Telegram alerts?', async () => { S.settings = (await act(() => api('POST', '/api/telegram/unlink'))) || S.settings; refresh(); }, 'Disconnect') }, 'Disconnect')),
         h('div', { class: 'grid2' }, h('label', { class: 'field' }, 'Morning summary', f.morningTime), h('label', { class: 'field' }, 'Evening: tomorrow', f.eveningTime)),
         h('p', { class: 'help' }, 'You also get an instant alert whenever a customer marks leave. Clear a time to turn that summary off. Connected Telegram also lets you reset a forgotten password. ', h('a', { href: '/help#telegram', target: '_blank', rel: 'noopener' }, 'Full Telegram guide')));
 
@@ -470,7 +474,7 @@ function renderSettings() {
       h('p', { class: 'help' }, 'Used for monthly amounts. Leave 0 if you do not want amounts shown.')),
     h('div', { class: 'card stack' }, h('h2', {}, 'Days you are closed'), h('div', { class: 'days' }, closed), h('p', { class: 'help' }, 'No tiffin is counted on these days (for example Sunday).')),
     h('div', { class: 'card stack' }, h('h2', {}, 'Customer leave'),
-      h('label', { class: 'field' }, 'Customers can cancel today’s tiffin', f.cutoffHour),
+      h('div', { class: 'field' }, 'Customers can cancel today’s tiffin', f.cutoffHour),
       h('p', { class: 'help' }, 'Customers can always mark leave from tomorrow onwards using their personal link.')),
     h('div', { class: 'card stack' }, h('h2', {}, '✈️ Telegram alerts'), tgBlock),
     save);

@@ -77,21 +77,17 @@ function subCard(sub) {
     sub.leaves.length > 0 && h('div', { class: 'stack' }, h('h2', { style: { margin: 0 } }, 'Your leaves'),
       sub.leaves.map((l) => h('div', { class: 'row-top', style: { alignItems: 'center' } },
         h('div', { class: 'row-main' }, h('strong', {}, rangeText(l)), h('div', { class: 'muted' }, `${nDays(l)} day${nDays(l) > 1 ? 's' : ''}`)),
-        l.to < sub.minDate ? null : h('button', { class: 'btn sm danger', onclick: async (e) => {
-          if (!confirm('Cancel this leave?')) return;
-          e.currentTarget.disabled = true;
-          try { replace(await api('DELETE', `/api/my/${sub.tid}/${sub.cid}/leaves/${l.id}`)); toast('Leave cancelled'); } catch (err) { errToast(err); e.currentTarget.disabled = false; }
-        } }, 'Cancel')))),
+        l.to < sub.minDate ? null : h('button', { class: 'btn sm danger', onclick: (e) => ask(e.currentTarget, 'Cancel this leave?', async () => {
+          try { replace(await api('DELETE', `/api/my/${sub.tid}/${sub.cid}/leaves/${l.id}`)); toast('Leave cancelled'); } catch (err) { errToast(err); }
+        }, 'Yes, cancel') }, 'Cancel')))),
     sub.businessPhone && h('a', { class: 'btn block', href: `tel:${sub.businessPhone}` }, `📞 Call ${sub.businessName}`),
     !sub.stopping && h('details', { class: 'stopbox' }, h('summary', {}, 'Stop with this provider'),
       h('div', { class: 'stack' },
         h('p', { class: 'help' }, 'Not your tiffin service, or you moved on? You are not tied to any provider. Choose your last tiffin day and they are told straight away. You can undo this until that day.'),
         h('label', { class: 'field' }, 'Last tiffin day', stopDate),
-        h('button', { class: 'btn danger', type: 'button', onclick: async (e) => {
-          if (!confirm(`Stop your tiffin with ${sub.businessName} after ${fmt(stopDate.value)}?`)) return;
-          e.currentTarget.disabled = true;
-          try { replace(await api('POST', `/api/my/${sub.tid}/${sub.cid}/stop`, { lastDay: stopDate.value })); toast('Done. Your provider has been told.'); } catch (err) { errToast(err); e.currentTarget.disabled = false; }
-        } }, 'Stop after this day'))));
+        h('button', { class: 'btn danger', type: 'button', onclick: (e) => ask(e.currentTarget, `Stop your tiffin with ${sub.businessName} after ${fmt(stopDate.value)}?`, async () => {
+          try { replace(await api('POST', `/api/my/${sub.tid}/${sub.cid}/stop`, { lastDay: stopDate.value })); toast('Done. Your provider has been told.'); } catch (err) { errToast(err); }
+        }, 'Yes, stop') }, 'Stop after this day'))));
 }
 
 // services that have ended, kept out of the way

@@ -179,21 +179,33 @@ input:focus, select:focus, textarea:focus { outline: 3px solid color-mix(in srgb
 .rep-nums span { font-size: 12px; color: var(--muted); font-weight: 600; }
 .rep-nums .miss b { color: var(--bad); }
 
-/* ---------- sheet (dialog) ---------- */
-dialog {
-  border: 0; padding: 0; width: 100%; max-width: 560px; max-height: 94dvh; margin: auto auto 0; border-radius: 26px 26px 0 0;
-  background: var(--bg); color: var(--ink); box-shadow: 0 -10px 50px rgba(0, 0, 0, .3);
-}
-dialog[open] { display: flex; flex-direction: column; animation: up .22s ease-out; }
-dialog::backdrop { background: rgba(30, 18, 5, .55); }
-@media (min-width: 700px) { dialog { margin: auto; border-radius: 26px; } }
-@keyframes up { from { transform: translateY(40px); opacity: 0; } }
-.sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px 8px; }
+/* ---------- in-page panel (replaces the page content; no popups) ---------- */
+.panel { width: 100%; max-width: 640px; margin: 0 auto; min-height: 100dvh; background: var(--bg); color: var(--ink); animation: up .2s ease-out; }
+.panel[hidden] { display: none; }
+body.panel-open > :not(#sheet):not(#toast):not(script) { display: none !important; }
+body.panel-open { padding: 0; }
+@keyframes up { from { transform: translateY(14px); opacity: 0; } }
+.sheet-head .back { flex: none; }
+.ask { display: grid; gap: 10px; padding: 12px; border-radius: 14px; background: color-mix(in srgb, var(--bad) 9%, var(--card)); border: 1.5px solid color-mix(in srgb, var(--bad) 35%, transparent); }
+.ask p { margin: 0; font-weight: 600; font-size: 15px; }
+/* styled dropdown (replaces native select) */
+.pick { position: relative; }
+.pick-btn { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--card); font-size: 16px; text-align: left; cursor: pointer; }
+.pick-btn:focus-visible, .pick.open .pick-btn { outline: 3px solid color-mix(in srgb, var(--brand) 35%, transparent); border-color: var(--brand); }
+.pick-arrow { flex: none; width: 10px; height: 10px; border-right: 2.5px solid var(--brand); border-bottom: 2.5px solid var(--brand); transform: rotate(45deg) translateY(-3px); transition: transform .15s; }
+.pick.open .pick-arrow { transform: rotate(-135deg) translateY(-3px); }
+.pick-list { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 6px); margin: 0; padding: 6px; list-style: none; max-height: 280px; overflow: auto; background: var(--card); border: 1.5px solid var(--line); border-radius: 14px; box-shadow: 0 14px 34px rgba(60, 30, 5, .18); }
+.pick-list[hidden] { display: none; }
+.pick-list li { padding: 12px 12px; border-radius: 10px; cursor: pointer; font-size: 16px; font-weight: 500; }
+.pick-list li:hover, .pick-list li:focus { background: color-mix(in srgb, var(--brand) 10%, var(--card)); outline: 0; }
+.pick-list li[aria-selected=true] { background: color-mix(in srgb, var(--brand) 16%, var(--card)); color: var(--brand); font-weight: 700; }
+.pick-list li[aria-selected=true]::after { content: '✓'; float: right; }
+.sheet-head { display: flex; align-items: center; gap: 12px; padding: 16px 18px 8px; }
 .sheet-head h2 { font-size: 20px; }
 .sheet-body { overflow: auto; padding: 8px 18px calc(22px + env(safe-area-inset-bottom)); display: grid; gap: 14px; }
 .chiprow { display: flex; flex-wrap: wrap; gap: 8px; }
 .leave-chip { display: inline-flex; align-items: center; gap: 4px; padding: 6px 6px 6px 12px; border-radius: 99px; background: var(--deluxe-bg); color: var(--deluxe-ink); font-weight: 700; font-size: 14px; }
-.leave-chip button { border: 0; background: rgba(0, 0, 0, .1); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; color: inherit; font-size: 14px; }
+.leave-chip button { border: 0; background: rgba(0, 0, 0, .1); width: 40px; height: 40px; border-radius: 50%; cursor: pointer; color: inherit; font-size: 14px; }
 details summary { cursor: pointer; font-weight: 700; color: var(--muted); padding: 6px 0; }
 details[open] summary { margin-bottom: 8px; }
 details .stack { margin-top: 4px; }

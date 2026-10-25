@@ -70,11 +70,9 @@ function draw(v) {
     v.leaves.length
       ? v.leaves.map((l) => h('div', { class: 'row-top', style: { alignItems: 'center' } },
           h('div', { class: 'row-main' }, h('strong', {}, l.from === l.to ? fmtS(l.from) : `${fmtS(l.from)} → ${fmtS(l.to)}`), h('div', { class: 'muted' }, `${nDays(l)} day${nDays(l) > 1 ? 's' : ''}`)),
-          l.to < v.minDate ? null : h('button', { class: 'btn sm danger', onclick: async (e) => {
-            if (!confirm('Cancel this leave?')) return;
-            e.currentTarget.disabled = true;
-            try { draw(await api('DELETE', `/leaves/${l.id}`)); toast('Leave cancelled'); } catch (err) { toast(err.message, true); e.currentTarget.disabled = false; }
-          } }, 'Cancel')))
+          l.to < v.minDate ? null : h('button', { class: 'btn sm danger', onclick: (e) => ask(e.currentTarget, 'Cancel this leave?', async () => {
+            try { draw(await api('DELETE', `/leaves/${l.id}`)); toast('Leave cancelled'); } catch (err) { toast(err.message, true); }
+          }, 'Yes, cancel') }, 'Cancel')))
       : h('p', { class: 'muted' }, 'No leave marked.'));
 
   $('#root').replaceChildren(h('main', { class: 'stack', style: { paddingTop: '28px' } },

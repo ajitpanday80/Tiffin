@@ -115,7 +115,7 @@ function openEnquiry(r) {
         const res = await post(`/api/market/${r.id}/enquire`, { name: name.value, phone: phone.value, address: address.value, note: note.value, type: form.t.value });
         const d = await res.json();
         if (!res.ok) throw new Error(d.error || 'Could not send');
-        dlg.replaceChildren(h('div', { class: 'sheet-head' }, h('h2', {}, 'Request sent ✓'), h('button', { class: 'icon-btn', onclick: () => dlg.close(), 'aria-label': 'Close' }, '✕')),
+        dlg.replaceChildren(h('div', { class: 'sheet-head' }, h('button', { class: 'btn sm back', type: 'button', onclick: () => dlg.close() }, '← Back'), h('h2', {}, 'Request sent ✓')),
           h('div', { class: 'sheet-body' }, h('p', {}, `${r.name} will contact you on ${phone.value}.`), h('button', { class: 'btn primary', onclick: () => dlg.close() }, 'Done')));
       } catch (err) { toast(err.message, true); go.disabled = false; }
     },
@@ -125,10 +125,9 @@ function openEnquiry(r) {
     h('label', { class: 'field' }, 'Delivery address', address),
     h('div', { class: 'pills' }, type('normal', 'Normal', true), type('deluxe', '✨ Deluxe', false)),
     h('label', { class: 'field' }, 'Note', note), go);
-  dlg.replaceChildren(h('div', { class: 'sheet-head' }, h('h2', {}, `Join ${r.name}`), h('button', { class: 'icon-btn', onclick: () => dlg.close(), 'aria-label': 'Close' }, '✕')), h('div', { class: 'sheet-body' }, form));
+  dlg.replaceChildren(h('div', { class: 'sheet-head' }, h('button', { class: 'btn sm back', type: 'button', onclick: () => dlg.close() }, '← Back'), h('h2', {}, `Join ${r.name}`)), h('div', { class: 'sheet-body' }, form));
   dlg.showModal();
 }
-$('#sheet').addEventListener('click', (e) => e.target === e.currentTarget && e.currentTarget.close());
 
 fetch('/api/me').then((r) => r.json()).then(({ user }) => {
   if (!user) return;

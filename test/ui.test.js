@@ -188,6 +188,24 @@ for (const [vp, size, extra] of VIEWPORTS) {
     await page.waitForSelector('.toast.show:has-text("Settings saved")');
     assert.equal(await page.locator('#biz').innerText(), name);
     assert.equal((await api('GET', '/api/settings', null, cookies.A)).body.prices.normal, 85);
+    // no browser popups: native dialogs fail the test, and drop-downs / confirmations / sheets stay in the page
+    page.on('dialog', (d) => { throw new Error(`browser popup: ${d.type()} ${d.message()}`); });
+    assert.equal(await page.locator('dialog, select').count(), 0, 'no <dialog> or native <select> in the provider app');
+    await page.click('.pick-btn');
+    await page.click('.pick-list li:has-text("Until 9:00 am")');
+    assert.match(await page.locator('.pick-btn').innerText(), /Until 9:00 am/);
+    await page.click('button:has-text("Save settings")');
+    await page.waitForSelector('.toast.show:has-text("Settings saved")');
+    assert.equal((await api('GET', '/api/settings', null, cookies.A)).body.cutoffHour, 9);
+    await page.goto(`${BASE}/app#/customers`);
+    await page.locator('.cust').first().click();
+    await page.waitForSelector('#sheet[open]');
+    assert.equal(await page.locator('nav.tabs').isVisible(), false, 'the sheet replaces the page, it is not layered on top');
+    await page.click('button:has-text("Delete customer")');
+    assert.ok(await page.locator('.ask button:has-text("Cancel")').isVisible(), 'inline confirmation appears in the page');
+    await page.click('.ask button:has-text("Cancel")');
+    await page.click('#sheet .back');
+    await page.waitForSelector('nav.tabs');
     await page.close();
     await ctx.close();
     assert.deepEqual(problems, []);

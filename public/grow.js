@@ -53,7 +53,7 @@ function listingCard(l) {
   const city = h('input', { type: 'text', value: l.city, maxLength: 60, placeholder: 'e.g. Pune' });
   const pin = h('input', { type: 'text', value: l.pincode, maxLength: 8, inputMode: 'numeric', placeholder: 'Your pincode' });
   const serves = h('input', { type: 'text', value: l.servesPincodes.join(', '), placeholder: 'Other pincodes you deliver to (optional)' });
-  const radius = h('select', {}, RADII.map((r) => h('option', { value: r, selected: r === l.radiusKm }, `${r} km`)));
+  const radius = pick(RADII.map((r) => [r, `${r} km`]), l.radiusKm);
   const chips = (name, options, chosen) => h('div', { class: 'tagpick' }, options.map((o) => h('label', {}, h('input', { type: 'checkbox', name, value: o, checked: chosen.includes(o) }), h('span', {}, o))));
   const tagBox = chips('tags', l.options.tags, l.tags);
   const mealBox = chips('meals', l.options.meals, l.meals);
@@ -95,7 +95,7 @@ function listingCard(l) {
     h('div', { class: 'grid2' }, h('label', { class: 'field' }, 'Area / locality', area), h('label', { class: 'field' }, 'City', city)),
     h('label', { class: 'field' }, 'Pincode', pin),
     h('div', { class: 'field' }, h('span', {}, 'Where you are'), h('div', { class: 'stack' }, gps, h('div', { class: 'grid2' }, findText, lookup), locState)),
-    h('label', { class: 'field' }, 'You deliver within', radius),
+    h('div', { class: 'field' }, 'You deliver within', radius),
     h('label', { class: 'field' }, 'Other pincodes', serves),
     h('label', { class: 'field' }, 'About', about),
     save);
@@ -119,11 +119,9 @@ function adsCard(ads, l) {
       ? h('div', { class: 'stack' }, ads.plans.map((p) => h('div', { class: 'plan' },
           h('div', {}, h('b', {}, p.name), h('div', { class: 'muted' }, `${p.days} days · customers within ${Math.min(p.radiusKm, l.radiusKm)} km`)),
           h('div', { style: { textAlign: 'right' } }, h('div', { class: 'price-big' }, money2(p.price)),
-            h('button', { class: 'btn primary sm', onclick: async (e) => {
-              if (!confirm(`Order “${p.name}” for ${money2(p.price)}?`)) return;
-              e.currentTarget.disabled = true;
-              if (await act(() => api('POST', '/api/ads/order', { planId: p.id }), 'Order placed. See the payment steps below.')) refresh(true); else e.currentTarget.disabled = false;
-            } }, 'Order')))))
+            h('button', { class: 'btn primary sm', onclick: (e) => ask(e.currentTarget, `Order “${p.name}” for ${money2(p.price)}?`, async () => {
+              if (await act(() => api('POST', '/api/ads/order', { planId: p.id }), 'Order placed. See the payment steps below.')) refresh(true);
+            }, 'Yes, order') }, 'Order')))))
       : h('p', { class: 'muted' }, 'Advertising plans are not open yet. Check back soon.')),
     pending.map((o) => h('div', { class: 'stack' },
       h('div', { class: 'rowline' }, h('b', {}, `${o.planName} · ${money2(o.price)}`), h('span', { class: 'st pending' }, 'Waiting for payment')),
