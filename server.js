@@ -288,16 +288,18 @@ route('GET', '/api/support', null, () => ({ support: db.platform.support }));
 
 route('POST', '/api/forgot', null, (ctx) => {
   const key = phoneKey(ctx.body.phone);
+  const role = ctx.body.role === 'customer' ? 'customer' : 'provider';
   if (forgotLimiter.blocked(`ip:${ctx.ip}`) || forgotLimiter.blocked(`ph:${key}`)) throw bad('Too many requests. Please try again in an hour.', 429);
   forgotLimiter.fail(`ip:${ctx.ip}`);
   forgotLimiter.fail(`ph:${key}`);
-  const user = key && db.users.find((u) => u.role === 'provider' && u.key === key);
-  const t = user && db.tenants[user.id];
-  if (t && tg.isLinked(t)) {
+  const user = key && db.users.find((u) => u.role === role && u.key === key);
+  // where the code goes: a provider's connected kitchen chat, or the chat a customer connected on their account page
+  const chat = !user ? '' : role === 'provider' ? db.tenants[user.id]?.settings.telegramChatId : user.telegramChatId;
+  if (user && chat && tg.configured) {
     const code = String(crypto.randomInt(100000, 1000000));
     db.platform.resets[user.id] = { h: sha(`${user.id}:${code}`), exp: Date.now() + CODE_MS, tries: 0 };
     store.save();
-    tg.notify(t, `🔑 Your MyTiffin password reset code: <b>${code}</b>\nIt works for 10 minutes. If you did not ask for this, ignore it.`);
+    tg.send(chat, `🔑 Your MyTiffin password reset code: <b>${code}</b>\nIt works for 10 minutes. If you did not ask for this, ignore it.`);
   }
   return { ok: true }; // identical answer whether or not the number exists or has Telegram
 });
@@ -307,7 +309,8 @@ route('POST', '/api/reset', null, async (ctx) => {
   resetLimiter.fail(`ip:${ctx.ip}`);
   checkNewPassword(ctx.body.password); // check first so a typo does not use up the code
   const key = phoneKey(ctx.body.phone);
-  const user = key && db.users.find((u) => u.role === 'provider' && u.key === key);
+  const role = ctx.body.role === 'customer' ? 'customer' : 'provider';
+  const user = key && db.users.find((u) => u.role === role && u.key === key);
   const rec = user && db.platform.resets[user.id];
   if (!rec || rec.exp < Date.now()) throw bad('That code is not valid or has expired. Ask for a new one.');
   if (++rec.tries > 5) {
@@ -699,10 +702,34 @@ route('POST', '/api/admin/listings/:tid/suspend', 'admin', ({ params, body }) =>
 });
 
 // ----- customer account -----
+const customerTelegram = (user) => {
+  if (!user.linkCode) {
+    user.linkCode = newLinkCode();
+    store.save();
+  }
+  return { configured: tg.configured, linked: tg.configured && !!user.telegramChatId, botAt: botVars()['{{BOT_AT}}'], botUrl: botVars()['{{BOT_URL}}'], code: user.linkCode };
+};
+
 route('GET', '/api/my', 'customer', ({ user }) => ({
   name: user.name,
+  telegram: customerTelegram(user),
   subscriptions: subscriptionsFor(user).map(({ tid, t, c }) => ({ tid, cid: c.id, ...customerView(t, c) })),
 }));
+
+route('POST', '/api/my/telegram/unlink', 'customer', ({ user }) => {
+  user.telegramChatId = '';
+  user.linkCode = newLinkCode(); // the old code stops working
+  store.save();
+  return customerTelegram(user);
+});
+
+// what the bot answers a connected customer who sends /status
+const STATUS_TEXT = { delivered: 'Delivered today ✅', pending: 'Being prepared 🍱', leave: 'On leave today 🏖', none: 'No tiffin today 🌴' };
+tg.customerStatus = (user) => {
+  const subs = subscriptionsFor(user);
+  if (!subs.length) return 'No tiffin service is linked to your number right now.';
+  return subs.map(({ t, c }) => `<b>${esc(t.settings.businessName)}</b>: ${STATUS_TEXT[customerView(t, c).status]}`).join('\n');
+};
 
 const mySub = (user, params) =>
   orNotFound(subscriptionsFor(user).find((s) => s.tid === params.tid && s.c.id === params.cid), 'Subscription not found');

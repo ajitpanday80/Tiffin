@@ -74,6 +74,27 @@ function subCard(sub) {
     sub.businessPhone && h('a', { class: 'btn block', href: `tel:${sub.businessPhone}` }, `📞 Call ${sub.businessName}`));
 }
 
+function telegramCard(tg) {
+  if (!tg || !tg.configured) return null;
+  const box = h('div', { class: 'card stack' });
+  const draw = (t) => box.replaceChildren(
+    h('h2', {}, '✈️ Telegram (optional)'),
+    t.linked
+      ? h('div', { class: 'stack' },
+          h('p', { class: 'ok-txt' }, '✅ Connected. If you forget your password, the reset code is sent to your Telegram.'),
+          h('p', { class: 'help' }, 'Send /status to the bot any time to see today’s tiffin.'),
+          h('button', { class: 'btn sm danger', onclick: async () => { try { draw(await api('POST', '/api/my/telegram/unlink')); toast('Telegram disconnected'); } catch (e) { if (e.message !== 'login') toast(e.message, true); } } }, 'Disconnect'))
+      : h('div', { class: 'stack' },
+          h('p', { class: 'help' }, 'Connect once and you can reset a forgotten password yourself, with a code sent to Telegram.'),
+          h('ol', { class: 'help', style: { paddingLeft: '20px', display: 'grid', gap: '4px' } },
+            h('li', {}, 'Open ', h('a', { href: t.botUrl, target: '_blank', rel: 'noopener' }, h('b', {}, t.botAt)), ' in Telegram and tap Start'),
+            h('li', {}, 'Send: ', h('code', {}, `/start ${t.code}`)),
+            h('li', {}, 'Come back here and tap “I did it”')),
+          h('button', { class: 'btn sm', onclick: async () => { try { const d = await api('GET', '/api/my'); data.telegram = d.telegram; draw(d.telegram); if (!d.telegram.linked) toast('Not connected yet. Send the code to the bot first.', true); } catch (e) { if (e.message !== 'login') toast(e.message, true); } } }, 'I did it')));
+  draw(tg);
+  return box;
+}
+
 function passwordCard() {
   const oldP = h('input', { type: 'password', autocomplete: 'current-password', required: true });
   const newP = h('input', { type: 'password', autocomplete: 'new-password', minLength: 6, required: true });
@@ -93,6 +114,7 @@ function draw() {
     h('main', { class: 'stack' },
       h('p', {}, 'Hi ', h('b', {}, data.name), '! 👋'),
       data.subscriptions.length ? data.subscriptions.map(subCard) : h('div', { class: 'card empty' }, h('div', { class: 'big' }, '🍽'), h('p', {}, 'No tiffin service found for your number right now. Please ask your provider to check it.')),
+      telegramCard(data.telegram),
       passwordCard(),
       h('p', { class: 'help', style: { textAlign: 'center' } }, 'For anything urgent or same-day, please call your provider.'),
       h('p', { class: 'help', style: { textAlign: 'center' } }, h('a', { href: '/find' }, 'Find another tiffin service'), ' · ', h('a', { href: '/help#customers' }, 'Help'))));

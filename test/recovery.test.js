@@ -198,3 +198,60 @@ test('bot name on the website: the username Telegram reports wins, with a link',
   assert.equal(s.botAt, '@MyTiffinTestBot');
   assert.equal(s.botUrl, 'https://t.me/MyTiffinTestBot');
 });
+
+test('customers: connect Telegram from their account, then reset a forgotten password with a code', async () => {
+  const cust = (await login('customer', '9822200001', 'customer-new-1')).cookie;
+  const t1 = (await call('GET', '/api/my', null, cust)).body.telegram;
+  assert.equal(t1.configured, true);
+  assert.equal(t1.linked, false);
+  assert.match(t1.code, /^[A-Z2-9]{8}$/);
+  assert.equal(t1.botAt, '@MyTiffinTestBot');
+  assert.equal((await call('GET', '/api/my', null, cust)).body.telegram.code, t1.code); // stable until disconnected
+
+  // not connected yet: asking for a code sends nothing (and answers exactly like any other request)
+  const n = sent.length;
+  assert.equal((await call('POST', '/api/forgot', { role: 'customer', phone: '9822200001' })).status, 200);
+  await sleep(300);
+  assert.equal(sent.length, n);
+
+  say(888, '/start WRONG000');
+  await waitFor(() => /not right/.test(lastTo(888)?.text || ''));
+  say(888, `/start ${t1.code}`);
+  await waitFor(() => /reset code will be sent here/.test(lastTo(888)?.text || ''));
+  assert.equal((await call('GET', '/api/my', null, cust)).body.telegram.linked, true);
+  say(888, '/status');
+  await waitFor(() => /Annapurna Tiffins<\/b>: /.test(lastTo(888)?.text || ''));
+  assert.match(lastTo(888).text, /Being prepared|Delivered today|On leave today|No tiffin today/);
+
+  await call('POST', '/api/forgot', { role: 'customer', phone: '98222 00001' });
+  await waitFor(() => /reset code: <b>\d{6}<\/b>/.test(lastTo(888)?.text || ''));
+  const code = lastTo(888).text.match(/<b>(\d{6})<\/b>/)[1];
+  assert.equal((await call('POST', '/api/reset', { role: 'provider', phone: '9822200001', code, password: 'cust-reset-1' })).status, 400); // a customer code does not work on a provider login
+  assert.equal((await call('POST', '/api/reset', { role: 'customer', phone: '9822200001', code, password: 'cust-reset-1' })).status, 200);
+  assert.equal((await call('GET', '/api/my', null, cust)).status, 401); // signed out everywhere
+  const fresh = await login('customer', '9822200001', 'cust-reset-1');
+  assert.equal(fresh.status, 200);
+
+  // disconnecting rotates the code: the old one is dead and no more codes are sent
+  const t2 = (await call('POST', '/api/my/telegram/unlink', {}, fresh.cookie)).body;
+  assert.equal(t2.linked, false);
+  assert.notEqual(t2.code, t1.code);
+  say(889, `/start ${t1.code}`);
+  await waitFor(() => /not right/.test(lastTo(889)?.text || ''));
+  const m = sent.length;
+  await call('POST', '/api/forgot', { role: 'customer', phone: '9822200001' });
+  await sleep(300);
+  assert.equal(sent.length, m);
+});
+
+test('a provider code and a customer code never mix: each chat is only ever linked to what its own code unlocks', async () => {
+  const provSettings = (await call('GET', '/api/settings', null, (await login('provider', '9811100050', 'by-admin-1')).cookie)).body.telegram;
+  const cust = (await login('customer', '9822200001', 'cust-reset-1')).cookie;
+  const custCode = (await call('GET', '/api/my', null, cust)).body.telegram.code;
+  assert.notEqual(provSettings.code, custCode);
+  say(901, `/start ${custCode}`); // a customer code in a fresh chat links the customer, not any kitchen
+  await waitFor(() => /reset code will be sent here/.test(lastTo(901)?.text || ''));
+  say(901, '/today'); // and gives that chat no access to kitchen data
+  await waitFor(() => /status/.test(lastTo(901)?.text || ''));
+  assert.doesNotMatch(lastTo(901).text, /Prepare/);
+});
