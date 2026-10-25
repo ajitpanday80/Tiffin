@@ -243,3 +243,16 @@ test('brand assets: favicon set, manifest icons and social image tags are all pr
   const post = await (await fetch(`${BASE}/blog/how-to-choose-a-tiffin-service`)).text();
   assert.match(post, /property="og:image" content="http:\/\/127\.0\.0\.1:\d+\/og-image\.png"/);
 });
+
+test('FAQ explains how to reset a password, for providers and customers, with the bot name filled in', async () => {
+  for (const url of ['/', '/help']) {
+    const html = await (await fetch(BASE + url)).text();
+    assert.doesNotMatch(html, /\{\{/, url);
+    assert.match(html, /How do I reset my password\? \(tiffin providers\)/, url);
+    assert.match(html, /How do I reset my password\? \(customers\)/, url);
+    assert.match(html, /I never connected Telegram/, url);
+    assert.match(html, /How do I change my password when I remember it\?/, url);
+    assert.match(html, /@tiffincrm_bot sends you a 6-digit code/, url);
+    assert.match(html, /href="\/forgot\?role=customer"/, url);
+  }
+});

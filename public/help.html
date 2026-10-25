@@ -147,7 +147,14 @@
   </ol>
 
   <details class="faqitem"><summary>It says my phone number was not found</summary><p>You can only create a login with a number your provider has added. Ask them to add or correct it. Numbers are matched on the last 10 digits, so the country code does not matter.</p></details>
-  <details class="faqitem"><summary>I forgot my password</summary><p>See <a href="#password">Forgot your password?</a> below. Providers and customers can get a code on Telegram; customers can also get a link from their provider.</p></details>
+  <details class="faqitem"><summary>I forgot my password (customers)</summary><ol>
+<li>Open the <a href="/forgot?role=customer">forgot password page</a> and choose <b>Customer</b>.</li>
+<li>Enter your phone number and tap <b>Send code to my Telegram</b>.</li>
+<li>Open Telegram. {{BOT_AT}} sends you a 6-digit code (valid for 10 minutes).</li>
+<li>Type the code, choose a new password and log in.</li>
+</ol>
+<p>This works only if you connected Telegram earlier on your <b>My tiffin</b> page (Telegram, then send <code>/start</code> and your code to the bot). If you did not, see the next question.</p><p><b>Tiffin providers:</b> contact support (the contact is shown on the <a href="/forgot">forgot password page</a>). After checking it is you, they send a one-time reset link. Then connect Telegram in <b>Settings → Telegram alerts</b> so you can reset it yourself next time.</p>
+<p><b>Customers:</b> ask your tiffin provider. They open your name in their MyTiffin app, tap <b>Create reset link</b> and send it to you on WhatsApp. Open the link and choose a new password. It works once and expires in 24 hours. (If you use more than one tiffin service, contact support instead.)</p></details>
   <details class="faqitem"><summary>I use more than one tiffin service</summary><p>If each saved your number, your login shows all of them as separate cards, each with its own leave.</p></details>
 </section>
 
@@ -215,7 +222,24 @@
   <h2>Common questions</h2>
   <details class="faqitem"><summary>The count on Today looks wrong</summary><p>Check that the customer’s <b>start date</b> and <b>last day</b> (More options) are right, that closed weekdays in Settings are correct, and whether they have leave on that date. Boxes per day also multiplies the count.</p></details>
   <details class="faqitem"><summary>I marked Delivered by mistake</summary><p>Open the <b>Delivered</b> tab on Today and press <b>Undo</b>.</p></details>
-  <details class="faqitem"><summary>I forgot my password</summary><p>See <a href="#password">Forgot your password?</a> above.</p></details>
+  <details class="faqitem"><summary>How do I reset my password? (tiffin providers)</summary><ol>
+<li>On the <a href="/login">login page</a> tap <b>Forgot password?</b> (or open <a href="/forgot">mytiffin.online/forgot</a>).</li>
+<li>Enter your phone number and tap <b>Send code to my Telegram</b>.</li>
+<li>Open Telegram. {{BOT_AT}} sends you a 6-digit code. It works for 10 minutes.</li>
+<li>Type the code, choose a new password (6+ characters) and tap <b>Set new password</b>.</li>
+<li>Log in with the new password. You are signed out on your other phones.</li>
+</ol>
+<p>No code arrives? Telegram is probably not connected for this number. See “I never connected Telegram” below.</p></details>
+  <details class="faqitem"><summary>How do I reset my password? (customers)</summary><ol>
+<li>Open the <a href="/forgot?role=customer">forgot password page</a> and choose <b>Customer</b>.</li>
+<li>Enter your phone number and tap <b>Send code to my Telegram</b>.</li>
+<li>Open Telegram. {{BOT_AT}} sends you a 6-digit code (valid for 10 minutes).</li>
+<li>Type the code, choose a new password and log in.</li>
+</ol>
+<p>This works only if you connected Telegram earlier on your <b>My tiffin</b> page (Telegram, then send <code>/start</code> and your code to the bot). If you did not, see the next question.</p></details>
+  <details class="faqitem"><summary>I never connected Telegram. Can I still get back in?</summary><p><b>Tiffin providers:</b> contact support (the contact is shown on the <a href="/forgot">forgot password page</a>). After checking it is you, they send a one-time reset link. Then connect Telegram in <b>Settings → Telegram alerts</b> so you can reset it yourself next time.</p>
+<p><b>Customers:</b> ask your tiffin provider. They open your name in their MyTiffin app, tap <b>Create reset link</b> and send it to you on WhatsApp. Open the link and choose a new password. It works once and expires in 24 hours. (If you use more than one tiffin service, contact support instead.)</p></details>
+  <details class="faqitem"><summary>How do I change my password when I remember it?</summary><p><b>Providers:</b> <b>Settings → Change password</b>. <b>Customers:</b> <b>My tiffin → Change password</b>. Enter your current password and a new one. Your other phones are signed out.</p></details>
   <details class="faqitem"><summary>I am not in the marketplace</summary><p>In <b>Grow</b>, the listing switch must be on, and you need an area plus either a pincode or a set location. Press <b>Save listing</b>. A listing can also be hidden if it was suspended by the administrator.</p></details>
   <details class="faqitem"><summary>Is my customers’ data private?</summary><p>Each provider only sees their own customers. In the marketplace only a rough location (about 1 km) and the business details you choose are shown. A customer’s search location is not stored.</p></details>
 </section>
