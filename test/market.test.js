@@ -211,13 +211,13 @@ test('videos are served with Range support (needed for seeking / Safari)', async
   assert.equal(bad.status, 416);
 });
 
-test('without a Telegram token the pages show the bot display name, never a raw placeholder', async () => {
+test('without a Telegram token the pages still show @tiffincrm_bot, never a raw placeholder', async () => {
   const help = await (await fetch(`${BASE}/help`)).text();
   assert.doesNotMatch(help, /\{\{BOT/);
-  assert.match(help, /search for <b>mytiffin<\/b>/);
-  assert.match(help, /href="\/help#telegram">open it directly/);
+  assert.match(help, /search for <b>@tiffincrm_bot<\/b>/);
+  assert.match(help, /href="https:\/\/t\.me\/tiffincrm_bot">open it directly/);
   const post = await (await fetch(`${BASE}/blog/telegram-alerts-for-your-tiffin-business`)).text();
-  assert.match(post, /<strong>mytiffin<\/strong>/);
+  assert.match(post, /<strong>@tiffincrm_bot<\/strong>/);
 });
 
 test('brand assets: favicon set, manifest icons and social image tags are all present and served', async () => {

@@ -104,7 +104,7 @@
   <h3 class="gh" id="telegram-owner">For whoever runs the system (one-time setup)</h3>
   <p class="sub">One bot serves every provider. You create it once.</p>
   <ol class="gsteps">
-    <li><h3>Create the bot</h3><p>In Telegram, open <b>@BotFather</b> and send <code>/newbot</code>. Name it <b>{{BOT}}</b>. Its username must end in <code>bot</code>. BotFather replies with a <b>token</b>.</p></li>
+    <li><h3>Create the bot</h3><p>In Telegram, open <b>@BotFather</b> and send <code>/newbot</code>. Choose any display name. The username must end in <code>bot</code> (this site uses <b>{{BOT_AT}}</b>). BotFather replies with a <b>token</b>.</p></li>
     <li><h3>Keep the token secret</h3><p>Anyone with the token can control the bot. Do not share it or put it in the website code or a public repository.</p></li>
     <li><h3>Give it to the server</h3><p>Start the app with the token in the environment: <code>TELEGRAM_BOT_TOKEN=your-token npm start</code>. On a hosting service, add it as an environment variable and restart.</p></li>
     <li><h3>Confirm it is running</h3><p>The server log shows <code>[telegram] bot @your_bot_username ready</code>. Providers will now see the bot name and their connect code in Settings.</p></li>

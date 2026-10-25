@@ -24,13 +24,14 @@ const COOKIE = 'tiffin_session';
 const store = new Store(process.env.DATA_DIR || path.join(ROOT, 'data'));
 const { db } = store;
 const tg = new Telegram({ token: process.env.TELEGRAM_BOT_TOKEN, store });
-// How the bot is named on the website. The display name is fixed text; the @username only exists after Telegram
-// confirms it (getMe at startup), so until then pages show the display name and link to the help section.
-const BOT_NAME = process.env.TELEGRAM_BOT_NAME || 'mytiffin';
+// How the bot is shown on the website. TELEGRAM_BOT_USERNAME sets it (default tiffincrm_bot); once Telegram confirms the
+// token's real username (getMe at startup) that one is used instead, so the pages can never point at the wrong bot.
+const BOT_USERNAME = (process.env.TELEGRAM_BOT_USERNAME || 'tiffincrm_bot').replace(/^@/, '');
+const botUser = () => tg.botName || BOT_USERNAME;
 const botVars = () => ({
-  '{{BOT}}': BOT_NAME,
-  '{{BOT_AT}}': tg.botName ? `@${tg.botName}` : BOT_NAME,
-  '{{BOT_URL}}': tg.botName ? `https://t.me/${tg.botName}` : '/help#telegram',
+  '{{BOT}}': botUser(),
+  '{{BOT_AT}}': `@${botUser()}`,
+  '{{BOT_URL}}': `https://t.me/${botUser()}`,
 });
 const fillBot = (html, base = '') => (html.includes('{{') ? html.replace(/\{\{(?:BOT(?:_AT|_URL)?|BASE)\}\}/g, (m) => (m === '{{BASE}}' ? base : botVars()[m])) : html);
 const geo = new Geocoder({

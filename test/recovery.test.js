@@ -184,13 +184,13 @@ test('forgot-password requests are rate limited', async () => {
   assert.equal(last.status, 429);
 });
 
-test('bot name on the website: real @username and link once Telegram answers', async () => {
+test('bot name on the website: the username Telegram reports wins, with a link', async () => {
   const get = async (u) => (await fetch(BASE + u)).text();
   const help = await get('/help');
   assert.doesNotMatch(help, /\{\{BOT/);
   assert.match(help, /<b>@MyTiffinTestBot<\/b>/);
   assert.match(help, /href="https:\/\/t\.me\/MyTiffinTestBot"/);
-  assert.match(help, /Name it <b>mytiffin<\/b>/);
+  assert.match(help, /this site uses <b>@MyTiffinTestBot<\/b>/); // what Telegram reports wins over the default
   const post = await get('/blog/telegram-alerts-for-your-tiffin-business');
   assert.doesNotMatch(post, /\{\{BOT/);
   assert.match(post, /<strong>@MyTiffinTestBot<\/strong>/);
