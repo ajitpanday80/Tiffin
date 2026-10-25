@@ -255,3 +255,40 @@ details.stopbox[open] summary, details.pastbox[open] summary { margin-bottom: 12
 .vis.warn { background: #fff3d6; color: #8a5a00; }
 .vis.off { background: var(--bad-bg); color: var(--bad); }
 .joined { margin: 0; font-weight: 700; color: var(--ok); }
+
+/* in-page calendar */
+.dp { position: relative; }
+.dp-btn { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--card); font-size: 16px; text-align: left; cursor: pointer; }
+.dp.open .dp-btn, .dp-btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 35%, transparent); border-color: var(--brand); }
+.dp-label.empty { color: var(--muted); }
+.dp-cal { margin-top: 8px; padding: 10px; border: 1.5px solid var(--line); border-radius: 16px; background: var(--card); box-shadow: 0 8px 24px rgba(60, 30, 5, .1); }
+.dp-cal[hidden] { display: none; }
+.dp-head { display: flex; align-items: center; justify-content: space-between; padding: 2px 0 8px; }
+.dp-head strong { color: var(--ink); font-size: 16px; }
+.dp-nav { width: 44px; height: 44px; border: 0; border-radius: 12px; background: var(--soft); font-size: 22px; cursor: pointer; color: var(--ink); }
+.dp-nav:disabled { opacity: .35; cursor: default; }
+.dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+.dp-wd { font-size: 12px; font-weight: 700; color: var(--muted); padding: 4px 0; }
+.dp-day { aspect-ratio: 1; min-height: 40px; border: 0; border-radius: 12px; background: transparent; font-size: 15px; font-weight: 600; color: var(--ink); cursor: pointer; }
+.dp-day:hover:not(:disabled) { background: color-mix(in srgb, var(--brand) 12%, var(--card)); }
+.dp-day.today { box-shadow: inset 0 0 0 2px var(--brand-2); }
+.dp-day.sel { background: var(--brand); color: #fff; }
+.dp-day:disabled { opacity: .3; cursor: default; }
+.dp-foot { display: flex; justify-content: space-between; padding-top: 6px; }
+.dp-foot .link-btn { min-height: 40px; padding: 0 10px; }
+
+/* ratings, consent */
+.stars { display: flex; gap: 4px; }
+.stars button { width: 44px; height: 44px; border: 0; border-radius: 12px; background: var(--soft); font-size: 26px; color: #c9b8a0; cursor: pointer; }
+.stars button.on { color: #f59f00; }
+details.ratebox { border-top: 1px solid var(--line); padding-top: 10px; }
+details.ratebox summary { font-weight: 700; cursor: pointer; padding: 8px 0; }
+.pendbox { border: 2px solid var(--brand-2); }
+.rating { font-weight: 700; color: #b26a00; }
+.review { margin: 6px 0 0; padding: 8px 10px; border-radius: 10px; background: var(--soft); font-size: 14px; }
+.review small { display: block; color: var(--muted); }
+.codebox { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--soft); }
+.codebox b { font-size: 22px; letter-spacing: 3px; font-variant-numeric: tabular-nums; }
+/* many tabs (admin): wrap to a second row instead of squeezing */
+.seg.wrap { flex-wrap: wrap; }
+.seg.wrap button { flex: 1 1 30%; padding: 0 8px; }

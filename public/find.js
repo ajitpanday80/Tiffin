@@ -38,6 +38,7 @@ function resultCard(r) {
     r.sponsored && h('span', { class: 'spon' }, 'Sponsored'),
     h('h3', {}, r.name),
     r.tagline && h('p', {}, r.tagline),
+    r.rating?.count > 0 && h('div', { class: 'rating' }, `${'★'.repeat(Math.round(r.rating.avg))}${'☆'.repeat(5 - Math.round(r.rating.avg))} ${r.rating.avg} · ${r.rating.count} review${r.rating.count > 1 ? 's' : ''}`),
     h('div', { class: 'rmeta' },
       h('span', {}, `📍 ${[r.area, r.city].filter(Boolean).join(', ') || r.pincode}`),
       r.distanceKm != null && h('span', {}, `~${r.distanceKm} km away`),
@@ -46,6 +47,7 @@ function resultCard(r) {
     (r.tags.length > 0 || r.meals.length > 0) && h('div', { class: 'tagrow' }, r.meals.map((m) => h('span', { class: 'tag meal' }, m)), r.tags.map((t) => h('span', { class: 'tag' }, t))),
     price && h('div', { class: 'price' }, `From: ${price}`),
     more, about,
+    r.reviews?.length > 0 && h('div', { class: 'stack' }, r.reviews.map((v) => h('div', { class: 'review' }, h('strong', {}, `${'★'.repeat(v.stars)} ${v.who}`), h('div', {}, v.comment), v.reply && h('small', {}, `Reply: ${v.reply}`)))),
     r.joined === 'active' && h('p', { class: 'joined' }, '✓ You are already with this service'),
     h('div', { class: 'ractions' },
       r.joined !== 'active' && h('button', { class: 'btn primary', type: 'button', onclick: () => openEnquiry(r) }, switching ? 'Switch to this one' : r.joined === 'ended' ? 'Join again' : 'Request to join'),
@@ -112,7 +114,7 @@ function openEnquiry(r) {
   const type = (v, l, on) => h('label', {}, h('input', { type: 'radio', name: 't', value: v, checked: on }), h('span', {}, l));
   const soon = new Date(Date.now() + 864e5 * (switching ? 1 : 0));
   const todayStr = new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
-  const start = h('input', { type: 'date', min: todayStr, value: new Date(soon.getTime() - soon.getTimezoneOffset() * 6e4).toISOString().slice(0, 10), required: true });
+  const start = dateInput({ min: todayStr, value: new Date(soon.getTime() - soon.getTimezoneOffset() * 6e4).toISOString().slice(0, 10) });
   const go = h('button', { class: 'btn primary block', type: 'submit' }, 'Send request');
   const form = h('form', {
     class: 'stack', onsubmit: async (e) => {

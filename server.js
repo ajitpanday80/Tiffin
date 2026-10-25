@@ -8,6 +8,7 @@ process.env.TZ ||= 'Asia/Kolkata'; // "today" must match the provider's wall clo
 
 import { Store, newTenant, newLinkCode } from './lib/store.js';
 import { Limiter } from './lib/limiter.js';
+import { dueReminders } from './lib/remind.js';
 import { Telegram, leaveText, esc } from './lib/telegram.js';
 import { phoneKey, validPhone, hashPassword, verifyPassword, createSession, lookupSession, destroySession, SESSION_MS } from './lib/auth.js';
 import * as L from './lib/logic.js';
@@ -57,6 +58,7 @@ const int = (v, min, max, dflt) => {
 const newId = () => crypto.randomBytes(6).toString('base64url');
 const loginLimiter = new Limiter(8, 10 * 60 * 1000);
 const signupLimiter = new Limiter(10, 60 * 60 * 1000);
+const codeLimiter = new Limiter(10, 60 * 60 * 1000); // wrong sign-up codes per phone number
 const searchLimiter = new Limiter(40, 60 * 1000);
 const enquiryLimiter = new Limiter(5, 60 * 60 * 1000);
 
@@ -132,21 +134,30 @@ function assertPhoneFree(t, phone, exceptId) {
   if (dupe) throw bad(`${dupe.name} already has this phone number. Edit that customer instead of adding a second one.`, 409);
 }
 
-// A customer may already have a MyTiffin login (and a connected Telegram). Tell them a new provider added them,
-// so nobody is signed up to a service without knowing.
-function announceToCustomer(t, c) {
-  const user = c.phone && db.users.find((u) => u.role === 'customer' && u.key === phoneKey(c.phone));
-  if (user?.telegramChatId && tg.configured) {
-    tg.send(user.telegramChatId, `🆕 <b>${esc(t.settings.businessName)}</b> added you as a tiffin customer (${c.type === 'deluxe' ? 'Deluxe' : 'Normal'}${c.qty > 1 ? ` ×${c.qty}` : ''}).\nNot expecting this? Open My tiffin and tap “Stop with this provider”.`);
-  }
+const loginFor = (phone) => (phone ? db.users.find((u) => u.role === 'customer' && u.key === phoneKey(phone)) : null);
+const newCode = () => String(crypto.randomInt(100000, 1000000)); // sign-up code a provider hands to the customer
+
+// A person must never be signed up to a service without knowing. If the number already has a MyTiffin login,
+// the new record waits for them to press Accept or "Not mine"; it is not counted until then.
+function announceToCustomer(t, c, how) {
+  const user = loginFor(c.phone);
+  if (!(user?.telegramChatId && tg.configured)) return;
+  const name = esc(t.settings.businessName);
+  const text = how === 'accepted'
+    ? `✅ <b>${name}</b> accepted your request. Your tiffin starts ${L.fmtDate(c.startDate)}.`
+    : `🆕 <b>${name}</b> wants to add you as a tiffin customer (${c.type === 'deluxe' ? 'Deluxe' : 'Normal'}${c.qty > 1 ? ` ×${c.qty}` : ''}).\nOpen My tiffin and tap <b>Accept</b>, or <b>Not mine</b> if you do not know them.`;
+  tg.send(user.telegramChatId, text);
 }
 
-function addCustomer(t, fields) {
+// opts.requested: the customer asked for this (marketplace request), so no confirmation is needed
+function addCustomer(t, fields, opts = {}) {
   assertPhoneFree(t, fields.phone);
-  const c = { id: newId(), token: crypto.randomBytes(12).toString('base64url'), ...fields, leaves: [], createdAt: Date.now() };
+  const consent = opts.requested || !loginFor(fields.phone) ? 'ok' : 'pending';
+  const c = { id: newId(), token: crypto.randomBytes(12).toString('base64url'), code: newCode(), ...fields, consent, leaves: [], createdAt: Date.now() };
   t.customers.push(c);
   store.save();
-  announceToCustomer(t, c);
+  if (opts.requested) announceToCustomer(t, c, 'accepted');
+  else if (consent === 'pending') announceToCustomer(t, c, 'pending');
   return c;
 }
 
@@ -170,11 +181,34 @@ function customerView(t, c) {
     endedBy: c.endedBy || '', // 'customer' when they stopped it themselves
     stopMin: L.addDays(L.leaveMinDate(t), -1), // earliest allowed last tiffin day
     leaves: c.leaves.filter((l) => l.to >= today).map(({ id, from, to }) => ({ id, from, to })),
+    consent: c.consent || 'ok', // 'pending' until the customer confirms a provider-added record
+    closures: (t.settings.pauses || []).filter((p) => p.to >= today).map(({ from, to, note }) => ({ from, to, note })),
+  };
+}
+
+// ---------- ratings ----------
+const RATING_MIN_DAYS = Number(process.env.RATING_MIN_DAYS ?? 7); // a customer can rate after this many days with a provider
+const visibleRatings = (t) => t.ratings.filter((r) => !r.hidden);
+function ratingSummary(t) {
+  const list = visibleRatings(t);
+  return { count: list.length, avg: list.length ? Math.round((list.reduce((a, r) => a + r.stars, 0) / list.length) * 10) / 10 : 0 };
+}
+const rateFrom = (c) => new Date((c.createdAt || 0) + RATING_MIN_DAYS * 864e5);
+
+// What a customer sees for one of their services (view + their own rating).
+function subOut(user, t, c) {
+  const mine = t.ratings.find((r) => r.uid === user.id);
+  return {
+    ...customerView(t, c),
+    canRate: (c.consent || 'ok') === 'ok' && Date.now() >= rateFrom(c).getTime(),
+    rateFrom: L.ymd(rateFrom(c)),
+    myRating: mine ? { stars: mine.stars, comment: mine.comment, hidden: !!mine.hidden } : null,
   };
 }
 
 // Customer-initiated leave changes (shared by the personal link and logged-in accounts).
 function customerAddLeave(t, c, body) {
+  if ((c.consent || 'ok') !== 'ok') throw bad('Please accept this service first.');
   checkRange(body.from, body.to, L.leaveMinDate(t));
   addLeave(c, body.from, body.to);
   store.save();
@@ -202,6 +236,9 @@ const subscriptionsFor = (user) =>
     t.customers.filter((c) => c.phone && phoneKey(c.phone) === user.key).map((c) => ({ tid, t, c })),
   );
 
+const activeSubs = (user) => subscriptionsFor(user).filter(({ c }) => !isEnded(c) && (c.consent || 'ok') === 'ok');
+const visibleSubs = (user) => subscriptionsFor(user).filter(({ c }) => c.consent !== 'declined');
+
 // ---------- routes ----------
 const routes = [];
 // auth: 'provider' | 'customer' | 'any' | null (public)
@@ -226,17 +263,30 @@ route('POST', '/api/signup', null, async (ctx) => {
   if (db.users.some((u) => u.role === role && u.key === key)) throw bad('This phone number already has an account. Please log in instead.', 409);
 
   let name;
+  let proven = [];
   if (role === 'provider') {
     name = str(ctx.body.businessName, 60);
     if (!name) throw bad('Please enter your tiffin service name');
   } else {
+    // Knowing a phone number is not proof it is yours: the sign-up needs the code (or personal link) a provider gave you.
+    if (codeLimiter.blocked(key)) throw bad('Too many wrong codes for this number. Please try again in an hour.', 429);
     const subs = subscriptionsFor({ key });
-    if (!subs.length) throw bad('We could not find this number. Ask your tiffin provider to add you with this phone number first.');
-    name = subs[0].c.name;
+    const code = str(ctx.body.code, 12).replace(/\s/g, '');
+    const token = str(ctx.body.token, 40);
+    proven = subs.filter(({ c }) => (token && c.token === token) || (code && c.code === code));
+    if (!proven.length) {
+      codeLimiter.fail(key);
+      throw bad('Please enter the sign-up code your tiffin provider gave you, or open your personal link and tap “Create login”.', 403);
+    }
+    name = proven[0].c.name;
   }
   const user = { id: newId(), role, phone, key, name, pass: await hashPassword(password) };
   db.users.push(user);
   if (role === 'provider') db.tenants[user.id] = newTenant(name);
+  else {
+    // services the person did not prove: they decide, nothing is counted until then
+    for (const { c } of subscriptionsFor({ key })) if (!proven.some((p) => p.c === c) && !isEnded(c) && (c.consent || 'ok') === 'ok') c.consent = 'pending';
+  }
   return startSession(ctx, user);
 });
 
@@ -531,7 +581,12 @@ route('GET', '/api/market/search', null, async ({ query, ip, user }) => {
     const subs = mine.filter((s) => s.tid === tid);
     return subs.some((s) => !isEnded(s.c)) ? 'active' : subs.length ? 'ended' : '';
   };
-  return { mode: origin ? 'distance' : 'pincode', label, pin, results: found.map((f) => ({ ...M.card(f), joined: joined(f.tid) })) };
+  return { mode: origin ? 'distance' : 'pincode', label, pin, results: found.map((f) => ({
+    ...M.card(f),
+    joined: joined(f.tid),
+    rating: ratingSummary(f.t),
+    reviews: visibleRatings(f.t).filter((r) => r.comment).sort((a, b) => b.at - a.at).slice(0, 3).map((r) => ({ stars: r.stars, comment: r.comment, who: r.who, reply: r.reply })),
+  })) };
 });
 
 route('POST', '/api/market/:lid/enquire', null, ({ params, body, ip, user }) => {
@@ -645,7 +700,7 @@ route('POST', '/api/enquiries/:id/accept', 'provider', ({ t, params }) => {
   const e = orNotFound(t.enquiries.find((x) => x.id === params.id && x.status === 'new'), 'Enquiry not found');
   const today = L.todayStr();
   const start = e.startDate && e.startDate > today ? e.startDate : today;
-  const c = addCustomer(t, cleanCustomer({ name: e.name, phone: e.phone, address: e.address, type: e.type, note: e.note, startDate: start }));
+  const c = addCustomer(t, cleanCustomer({ name: e.name, phone: e.phone, address: e.address, type: e.type, note: e.note, startDate: start }), { requested: true });
   e.status = 'added';
   // A customer who is switching leaves the old provider the day before the new one starts, but only now that
   // the new provider has said yes, so they are never left without a tiffin.
@@ -703,6 +758,7 @@ route('POST', '/api/ads/orders/:id/cancel', 'provider', ({ user, params }) => {
 
 // ----- platform admin (accounts are created with scripts/make-admin.js) -----
 const adminOverview = () => ({
+  reviews: adminReviews(),
   currency: db.platform.currency,
   payInstructions: db.platform.payInstructions,
   support: db.platform.support,
@@ -801,7 +857,7 @@ route('GET', '/api/my', 'customer', ({ user }) => ({
   requests: myRequests(user),
   name: user.name,
   telegram: customerTelegram(user),
-  subscriptions: subscriptionsFor(user).map(({ tid, t, c }) => ({ tid, cid: c.id, ...customerView(t, c) })),
+  subscriptions: visibleSubs(user).map(({ tid, t, c }) => ({ tid, cid: c.id, ...subOut(user, t, c) })),
 }));
 
 route('POST', '/api/my/telegram/unlink', 'customer', ({ user }) => {
@@ -814,16 +870,36 @@ route('POST', '/api/my/telegram/unlink', 'customer', ({ user }) => {
 // what the bot answers a connected customer who sends /status
 const STATUS_TEXT = { delivered: 'Delivered today ✅', pending: 'Being prepared 🍱', leave: 'On leave today 🏖', none: 'No tiffin today 🌴' };
 tg.customerStatus = (user) => {
-  const subs = subscriptionsFor(user).filter(({ c }) => !isEnded(c));
+  const subs = activeSubs(user);
   if (!subs.length) return 'No active tiffin service is linked to your number right now.';
   return subs.map(({ t, c }) => `<b>${esc(t.settings.businessName)}</b>: ${STATUS_TEXT[customerView(t, c).status]}`).join('\n');
 };
 
-const mySub = (user, params) =>
-  orNotFound(subscriptionsFor(user).find((s) => s.tid === params.tid && s.c.id === params.cid), 'Subscription not found');
+const mySubAny = (user, params) =>
+  orNotFound(visibleSubs(user).find((s) => s.tid === params.tid && s.c.id === params.cid), 'Subscription not found');
+const mySub = (user, params) => {
+  const s = mySubAny(user, params);
+  if ((s.c.consent || 'ok') !== 'ok') throw bad('Please accept this service first.');
+  return s;
+};
+
+route('POST', '/api/my/:tid/:cid/accept', 'customer', ({ user, params }) => {
+  const { t, c } = mySubAny(user, params);
+  c.consent = 'ok';
+  store.save();
+  tg.notify(t, `✅ <b>${esc(c.name)}</b> confirmed they are your customer.`);
+  return { tid: params.tid, cid: c.id, ...subOut(user, t, c) };
+});
+route('POST', '/api/my/:tid/:cid/decline', 'customer', ({ user, params }) => {
+  const { t, c } = mySubAny(user, params);
+  c.consent = 'declined';
+  store.save();
+  tg.notify(t, `🚫 The person with <b>${esc(c.name)}</b>'s number says they are not your customer. They are not counted. Please check the number, or delete the record.`);
+  return { ok: true };
+});
 
 route('POST', '/api/my/leaves', 'customer', ({ user, body }) => {
-  const subs = subscriptionsFor(user).filter(({ c }) => !isEnded(c) && (!c.endDate || c.endDate >= body.from));
+  const subs = activeSubs(user).filter(({ c }) => !c.endDate || c.endDate >= body.from);
   if (!subs.length) throw bad('You have no active tiffin service to mark leave for.');
   const skipped = [];
   let applied = 0;
@@ -837,7 +913,7 @@ route('POST', '/api/my/leaves', 'customer', ({ user, body }) => {
     }
   }
   if (!applied) throw bad(skipped.map((x) => `${x.name}: ${x.error}`).join(' '));
-  return { applied, skipped, subscriptions: subscriptionsFor(user).map(({ tid, t, c }) => ({ tid, cid: c.id, ...customerView(t, c) })) };
+  return { applied, skipped, subscriptions: visibleSubs(user).map(({ tid, t, c }) => ({ tid, cid: c.id, ...subOut(user, t, c) })) };
 });
 
 route('POST', '/api/my/:tid/:cid/stop', 'customer', ({ user, params, body }) => {
@@ -876,7 +952,87 @@ route('DELETE', '/api/my/:tid/:cid/leaves/:lid', 'customer', ({ user, params }) 
   return { tid: params.tid, cid: c.id, ...customerRemoveLeave(t, c, params.lid) };
 });
 
+route('PUT', '/api/my/:tid/:cid/rating', 'customer', ({ user, params, body }) => {
+  const { t, c } = mySub(user, params);
+  if (Date.now() < rateFrom(c).getTime()) throw bad(`You can rate this service after ${L.fmtDate(L.ymd(rateFrom(c)))}.`);
+  const stars = int(body.stars, 1, 5, 0);
+  if (!stars) throw bad('Please choose 1 to 5 stars.');
+  let r = t.ratings.find((x) => x.uid === user.id);
+  if (!r) t.ratings.push((r = { id: newId(), uid: user.id, who: str(user.name, 40).split(/\s+/)[0] || 'Customer', hidden: false, flagged: false, reply: '', replyAt: 0 }));
+  Object.assign(r, { stars, comment: str(body.comment, 200), at: Date.now() });
+  store.save();
+  return { tid: params.tid, cid: c.id, ...subOut(user, t, c) };
+});
+
+// ----- provider: reviews and holiday closures -----
+const reviewOut = (r) => ({ id: r.id, stars: r.stars, comment: r.comment, who: r.who, at: r.at, hidden: r.hidden, flagged: r.flagged, reply: r.reply });
+route('GET', '/api/reviews', 'provider', ({ t }) => ({ ...ratingSummary(t), items: [...t.ratings].sort((a, b) => b.at - a.at).map(reviewOut) }));
+route('POST', '/api/reviews/:id/reply', 'provider', ({ t, params, body }) => {
+  const r = orNotFound(t.ratings.find((x) => x.id === params.id && !x.hidden), 'Review not found');
+  r.reply = str(body.text, 300);
+  r.replyAt = Date.now();
+  store.save();
+  return reviewOut(r);
+});
+route('POST', '/api/reviews/:id/report', 'provider', ({ t, params }) => {
+  const r = orNotFound(t.ratings.find((x) => x.id === params.id), 'Review not found');
+  r.flagged = true;
+  store.save();
+  return reviewOut(r);
+});
+
+const MAX_PAUSES = 20;
+function pauseCustomers(t, text) {
+  for (const c of t.customers) {
+    if (isEnded(c) || (c.consent || 'ok') !== 'ok') continue;
+    const u = loginFor(c.phone);
+    if (u?.telegramChatId && tg.configured) tg.send(u.telegramChatId, text);
+  }
+}
+route('POST', '/api/pauses', 'provider', ({ t, body }) => {
+  const today = L.todayStr();
+  if (!L.isDate(body.from) || !L.isDate(body.to)) throw bad('Please pick the first and last closed day.');
+  if (body.to < body.from) throw bad('The last closed day cannot be before the first.');
+  if (body.from < today) throw bad('Closures start today or later.');
+  if (L.dayCount(body.from, body.to) > 120) throw bad('A closure can be up to 120 days.');
+  t.settings.pauses = (t.settings.pauses || []).filter((p) => p.to >= today);
+  if (t.settings.pauses.length >= MAX_PAUSES) throw bad('Too many closures. Remove an old one first.');
+  const p = { id: newId(), from: body.from, to: body.to, note: str(body.note, 100) };
+  t.settings.pauses.push(p);
+  t.settings.pauses.sort((a, b) => a.from.localeCompare(b.from));
+  store.save();
+  const range = p.from === p.to ? L.fmtDate(p.from) : `${L.fmtDate(p.from)} to ${L.fmtDate(p.to)}`;
+  pauseCustomers(t, `🏖 <b>${esc(t.settings.businessName)}</b> is closed ${range}.${p.note ? `\n${esc(p.note)}` : ''}\nNo tiffin on those days.`);
+  return settingsOut(t);
+});
+route('DELETE', '/api/pauses/:id', 'provider', ({ t, params }) => {
+  const p = orNotFound((t.settings.pauses || []).find((x) => x.id === params.id), 'Closure not found');
+  t.settings.pauses = t.settings.pauses.filter((x) => x !== p);
+  store.save();
+  if (p.to >= L.todayStr()) pauseCustomers(t, `✅ <b>${esc(t.settings.businessName)}</b> will deliver as usual after all (closure ${L.fmtDate(p.from)}${p.from === p.to ? '' : ` to ${L.fmtDate(p.to)}`} cancelled).`);
+  return settingsOut(t);
+});
+
+// ----- admin: reviews that were reported or need hiding -----
+const adminReviews = () => Object.entries(db.tenants).flatMap(([tid, t]) => t.ratings.map((r) => ({ tid, provider: t.settings.businessName, ...reviewOut(r) })))
+  .sort((a, b) => Number(b.flagged) - Number(a.flagged) || b.at - a.at).slice(0, 200);
+route('GET', '/api/admin/reviews', 'admin', () => ({ items: adminReviews() }));
+route('POST', '/api/admin/reviews/:tid/:id', 'admin', ({ params, body }) => {
+  const r = orNotFound(db.tenants[params.tid]?.ratings.find((x) => x.id === params.id), 'Review not found');
+  r.hidden = !!body.hidden;
+  r.flagged = false;
+  store.save();
+  return adminOverview();
+});
+
 // ----- passwordless personal link (the secret token is the only credential) -----
+route('POST', '/api/c/:token/accept', null, ({ params }) => {
+  const [t, c] = findByToken(params.token);
+  c.consent = 'ok';
+  store.save();
+  tg.notify(t, `✅ <b>${esc(c.name)}</b> confirmed they are your customer.`);
+  return customerView(t, c);
+});
 route('GET', '/api/c/:token', null, ({ params }) => customerView(...findByToken(params.token)));
 route('POST', '/api/c/:token/leaves', null, ({ params, body }) => {
   const [t, c] = findByToken(params.token);
@@ -1049,11 +1205,25 @@ const server = http.createServer((req, res) => {
   }
 });
 
+// A join request nobody answered for a day (and again after three) gets a Telegram nudge to the provider.
+function remindPending() {
+  const due = dueReminders(Object.values(db.tenants));
+  if (!due.length) return;
+  store.save();
+  for (const { tenant: t, late } of due) {
+    tg.notify(t, `⏳ ${late.length} join request${late.length > 1 ? 's are' : ' is'} still waiting for your answer (${late.slice(0, 3).map((e) => esc(e.name)).join(', ')}). Open the app → Grow to accept or dismiss.`);
+  }
+}
+for (const t of Object.values(db.tenants)) for (const c of t.customers) if (!c.code) c.code = newCode(); // older records get a sign-up code
+store.save();
+
 server.listen(PORT, HOST, () => {
   console.log(`MyTiffin app running on http://localhost:${PORT}  (timezone: ${process.env.TZ})`);
   if (!tg.configured) console.log('Telegram alerts are off (set TELEGRAM_BOT_TOKEN to enable).');
   tg.start();
   setInterval(() => tg.tick(), 30_000).unref();
+  remindPending();
+  setInterval(remindPending, 60 * 60 * 1000).unref();
   // Providers listed before this fix (pincode but no position) become findable by address / GPS search.
   (async () => { for (const t of Object.values(db.tenants)) await ensureCoords(t).catch(() => {}); })();
 });

@@ -109,8 +109,12 @@ test('public customer link: leave rules and privacy', async () => {
 
 let custCookie;
 test('customer account: only numbers a provider added can sign up; sees and edits only own leave', async () => {
-  assert.equal((await call('POST', '/api/signup', { role: 'customer', phone: '9000099999', password: 'abcdef' })).status, 400); // unknown number
-  const up = await call('POST', '/api/signup', { role: 'customer', phone: '+91 98765-43210', password: 'custpass' });
+  assert.equal((await call('POST', '/api/signup', { role: 'customer', phone: '9000099999', password: 'abcdef', code: '123456' })).status, 403); // unknown number
+  // knowing a number is not enough: the code the provider hands out (or the personal link) proves it is yours
+  assert.equal((await call('POST', '/api/signup', { role: 'customer', phone: '+91 98765-43210', password: 'custpass' })).status, 403);
+  assert.equal((await call('POST', '/api/signup', { role: 'customer', phone: '+91 98765-43210', password: 'custpass', code: a.code === '000000' ? '111111' : '000000' })).status, 403);
+  assert.match(a.code, /^\d{6}$/);
+  const up = await call('POST', '/api/signup', { role: 'customer', phone: '+91 98765-43210', password: 'custpass', code: a.code });
   assert.equal(up.status, 200);
   custCookie = sessionCookie(up);
   assert.equal((await call('GET', '/api/customers', null, { as: custCookie })).status, 403); // not a provider

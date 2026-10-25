@@ -5,8 +5,8 @@
 const RADII = [2, 3, 5, 8, 10, 15, 20, 25];
 
 async function loadGrow() {
-  const [listing, ads, enq] = await Promise.all([api('GET', '/api/listing'), api('GET', '/api/ads'), api('GET', '/api/enquiries')]);
-  S.grow = { listing, ads, enquiries: enq.enquiries };
+  const [listing, ads, enq, reviews] = await Promise.all([api('GET', '/api/listing'), api('GET', '/api/ads'), api('GET', '/api/enquiries'), api('GET', '/api/reviews')]);
+  S.grow = { listing, ads, enquiries: enq.enquiries, reviews };
   setBadge(enq.enquiries.length);
 }
 
@@ -26,6 +26,7 @@ function renderGrow() {
     h('div', { class: 'section-title' }, 'Grow your tiffin business'),
     enquiries.length > 0 && enquiryCard(enquiries),
     listingCard(l),
+    reviewsCard(S.grow.reviews),
     adsCard(ads, l));
 }
 
@@ -43,6 +44,22 @@ function enquiryCard(list) {
         } }, 'Add as customer'),
         h('a', { class: 'btn sm', href: `tel:${e.phone}` }, '📞 Call'),
         h('button', { class: 'btn sm', onclick: async () => { if (await act(() => api('POST', `/api/enquiries/${e.id}/dismiss`))) refresh(true); } }, 'Dismiss')))));
+}
+
+const starText = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
+function reviewsCard(r) {
+  return h('div', { class: 'card stack' }, h('h2', {}, '⭐ Reviews'),
+    r.count ? h('p', { class: 'rating' }, `${starText(Math.round(r.avg))}  ${r.avg} from ${r.count} customer${r.count > 1 ? 's' : ''}`) : h('p', { class: 'help' }, 'No reviews yet. Customers can rate you from their My tiffin page after about a week with you.'),
+    r.items.map((x) => {
+      const reply = h('input', { type: 'text', maxLength: 300, value: x.reply, placeholder: 'Reply in public (optional)' });
+      return h('div', { class: 'review' },
+        h('strong', {}, `${starText(x.stars)} ${x.who}`), x.hidden && h('small', {}, 'Hidden by the MyTiffin team'),
+        x.comment && h('div', {}, x.comment), x.reply && h('small', {}, `You replied: ${x.reply}`),
+        !x.hidden && h('div', { class: 'stack' }, reply,
+          h('div', { class: 'grid2' },
+            h('button', { class: 'btn sm', type: 'button', onclick: async () => { if (await act(() => api('POST', `/api/reviews/${x.id}/reply`, { text: reply.value }), 'Reply saved')) refresh(true); } }, 'Save reply'),
+            h('button', { class: 'btn sm', type: 'button', disabled: x.flagged, onclick: async () => { if (await act(() => api('POST', `/api/reviews/${x.id}/report`), 'Reported to the MyTiffin team')) refresh(true); } }, x.flagged ? 'Reported' : 'Report unfair review'))));
+    }));
 }
 
 function listingCard(l) {

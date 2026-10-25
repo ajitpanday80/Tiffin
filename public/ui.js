@@ -81,6 +81,7 @@
       for (const [x, li] of items) li.setAttribute('aria-selected', x === o ? 'true' : 'false');
       if (!quiet) onchange?.(o[0]);
     };
+    list.addEventListener('click', (e) => e.preventDefault()); // inside a <label>: do not re-trigger the button
     root.close = () => { root.classList.remove('open'); list.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
     root.open = () => {
       document.querySelectorAll('.pick.open').forEach((p) => p !== root && p.close());
@@ -93,5 +94,89 @@
     set(cur, true);
     root.append(btn, list);
     return root;
+  };
+  // ----- in-page calendar: dateInput({ value, min, max, clearable, placeholder }) -> element with .value / .min / .max
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const ymd = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  const parse = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+  const nice = (s) => parse(s).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  window.dateInput = ({ value = '', min = '', max = '', clearable = false, placeholder = 'Pick a date' } = {}) => {
+    const root = mk('div', { class: 'dp' });
+    const label = mk('span', { class: 'dp-label' });
+    const btn = mk('button', { type: 'button', class: 'dp-btn', 'aria-expanded': 'false' }, label, mk('span', { class: 'dp-ic', 'aria-hidden': 'true' }, '📅'));
+    const cal = mk('div', { class: 'dp-cal', hidden: true });
+    let val = value;
+    let shown = null; // first day of the month being looked at
+    const paintLabel = () => { label.textContent = val ? nice(val) : placeholder; label.classList.toggle('empty', !val); };
+    const pickDay = (s) => { val = s; paintLabel(); close(); root.dispatchEvent(new Event('change')); };
+    const draw = () => {
+      const first = shown;
+      const todayS = ymd(new Date());
+      const prev = mk('button', { type: 'button', class: 'dp-nav', 'aria-label': 'Previous month' }, '‹');
+      const next = mk('button', { type: 'button', class: 'dp-nav', 'aria-label': 'Next month' }, '›');
+      prev.addEventListener('click', () => { shown = new Date(first.getFullYear(), first.getMonth() - 1, 1); draw(); });
+      next.addEventListener('click', () => { shown = new Date(first.getFullYear(), first.getMonth() + 1, 1); draw(); });
+      const lastOfPrev = ymd(new Date(first.getFullYear(), first.getMonth(), 0));
+      const firstOfNext = ymd(new Date(first.getFullYear(), first.getMonth() + 1, 1));
+      prev.disabled = !!min && lastOfPrev < min;
+      next.disabled = !!max && firstOfNext > max;
+      const grid = mk('div', { class: 'dp-grid' });
+      for (const d of ['S', 'M', 'T', 'W', 'T', 'F', 'S']) grid.append(mk('span', { class: 'dp-wd' }, d));
+      for (let i = 0; i < first.getDay(); i++) grid.append(mk('span'));
+      const days = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+      for (let d = 1; d <= days; d++) {
+        const s = ymd(new Date(first.getFullYear(), first.getMonth(), d));
+        const b = mk('button', { type: 'button', class: `dp-day${s === val ? ' sel' : ''}${s === todayS ? ' today' : ''}`, 'aria-label': nice(s), 'aria-pressed': s === val ? 'true' : 'false' }, String(d));
+        b.disabled = (!!min && s < min) || (!!max && s > max);
+        b.addEventListener('click', () => pickDay(s));
+        grid.append(b);
+      }
+      const foot = mk('div', { class: 'dp-foot' });
+      const t = mk('button', { type: 'button', class: 'link-btn' }, 'Today');
+      t.disabled = (!!min && todayS < min) || (!!max && todayS > max);
+      t.addEventListener('click', () => pickDay(todayS));
+      foot.append(t);
+      if (clearable) { const c = mk('button', { type: 'button', class: 'link-btn' }, 'Clear'); c.addEventListener('click', () => pickDay('')); foot.append(c); }
+      cal.replaceChildren(mk('div', { class: 'dp-head' }, prev, mk('strong', {}, `${MONTHS[first.getMonth()]} ${first.getFullYear()}`), next), grid, foot);
+    };
+    const open = () => {
+      document.querySelectorAll('.dp.open').forEach((p) => p !== root && p.close());
+      const base = val ? parse(val) : min ? parse(min) : new Date();
+      shown = new Date(base.getFullYear(), base.getMonth(), 1);
+      draw();
+      cal.hidden = false; root.classList.add('open'); btn.setAttribute('aria-expanded', 'true');
+    };
+    const close = () => { cal.hidden = true; root.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); };
+    root.close = close;
+    btn.addEventListener('click', () => (root.classList.contains('open') ? close() : open()));
+    cal.addEventListener('click', (e) => e.preventDefault()); // inside a <label>: do not re-trigger the button
+    Object.defineProperties(root, {
+      value: { get: () => val, set: (v) => { val = v || ''; paintLabel(); } },
+      min: { get: () => min, set: (v) => { min = v || ''; if (root.classList.contains('open')) draw(); } },
+      max: { get: () => max, set: (v) => { max = v || ''; if (root.classList.contains('open')) draw(); } },
+    });
+    paintLabel();
+    root.append(btn, cal);
+    return root;
+  };
+  document.addEventListener('click', (e) => document.querySelectorAll('.dp.open').forEach((p) => !p.contains(e.target) && p.close()));
+
+  // ----- in-page time chooser: timeInput({ value: '07:00', clearable }) -> element with .value ('HH:MM' or '')
+  window.timeInput = ({ value = '', clearable = false } = {}) => {
+    const opts = [];
+    if (clearable) opts.push(['', 'Off']);
+    for (let m = 0; m < 24 * 60; m += 15) {
+      const h24 = Math.floor(m / 60);
+      const hh = h24 % 12 || 12;
+      opts.push([`${pad2(h24)}:${pad2(m % 60)}`, `${hh}:${pad2(m % 60)} ${h24 < 12 ? 'am' : 'pm'}`]);
+    }
+    if (value && !opts.some(([v]) => v === value)) {
+      const [h24, mm] = value.split(':').map(Number);
+      opts.push([value, `${h24 % 12 || 12}:${pad2(mm)} ${h24 < 12 ? 'am' : 'pm'}`]);
+      opts.sort((a, b) => a[0].localeCompare(b[0]));
+    }
+    return window.pick(opts, value);
   };
 })();

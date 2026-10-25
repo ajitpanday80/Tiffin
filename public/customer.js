@@ -40,10 +40,12 @@ async function api(method, path, body) {
   return data;
 }
 
+const closureNote = (list) => h('div', { class: 'note-area' }, list.map((c) => h('div', {}, `🏖 Closed ${c.from === c.to ? fmtS(c.from) : `${fmtS(c.from)} to ${fmtS(c.to)}`}${c.note ? `: ${c.note}` : ''}. No tiffin on those days.`)));
+
 function draw(v) {
   document.title = `${v.businessName} – tiffin leave`;
-  const from = h('input', { type: 'date', value: v.minDate, min: v.minDate, required: true });
-  const to = h('input', { type: 'date', value: v.minDate, min: v.minDate, required: true });
+  const from = dateInput({ value: v.minDate, min: v.minDate });
+  const to = dateInput({ value: v.minDate, min: v.minDate });
   from.addEventListener('change', () => { if (to.value < from.value) to.value = from.value; to.min = from.value; });
   const btn = h('button', { class: 'btn primary block', type: 'submit' }, 'Mark my leave');
 
@@ -80,10 +82,13 @@ function draw(v) {
       h('img', { class: 'logo', src: '/icon.svg', alt: '', style: { width: '56px', height: '56px', borderRadius: '16px' } }),
       h('h1', { style: { fontSize: '22px', marginTop: '10px' } }, v.businessName),
       h('p', { class: 'muted' }, `Hi ${v.name}! Your plan: `, h('b', {}, v.type === 'deluxe' ? '✨ Deluxe' : 'Normal'), v.qty > 1 ? ` × ${v.qty}` : '')),
+    v.consent === 'pending' && h('div', { class: 'card stack' }, h('strong', {}, `${v.businessName} added you as a customer.`), h('p', { class: 'help' }, 'Is that right? Until you confirm, you are not counted in their tiffin boxes.'),
+      h('button', { class: 'btn primary', type: 'button', onclick: async () => { try { draw(await api('POST', '/accept')); toast('Thanks, confirmed ✓'); } catch (err) { toast(err.message, true); } } }, 'Yes, that is me')),
+    v.closures.length > 0 && closureNote(v.closures),
     form, list,
     v.businessPhone && h('a', { class: 'btn block', href: `tel:${v.businessPhone}` }, `📞 Call ${v.businessName}`),
     h('p', { class: 'help', style: { textAlign: 'center' } }, 'To change something that has already started, please call.'),
-    h('p', { class: 'help', style: { textAlign: 'center' } }, 'Want to log in with your phone number? ', h('a', { href: '/signup?role=customer' }, 'Create a login'))));
+    h('p', { class: 'help', style: { textAlign: 'center' } }, 'Want to log in with your phone number? ', h('a', { href: `/signup?role=customer&t=${encodeURIComponent(token)}` }, 'Create a login'))));
 }
 
 api('GET', '')

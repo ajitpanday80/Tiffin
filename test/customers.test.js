@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -20,12 +20,25 @@ const call = async (method, url, body, cookie) => {
   });
   return { status: r.status, body: await r.json(), cookie: r.headers.get('set-cookie')?.split(';')[0] };
 };
-const signup = async (role, phone, extra = {}) => (await call('POST', '/api/signup', { role, phone, password: 'first-pass', ...extra })).cookie;
+const providerCookies = [];
+const signup = async (role, phone, extra = {}) => {
+  let code = extra.code;
+  if (role === 'customer' && !code) {
+    for (const pc of providerCookies) { // a customer signs up with the code a provider gave them
+      const c = (await call('GET', '/api/customers', null, pc)).body.customers?.find((x) => x.phone && x.phone.replace(/\D/g, '').slice(-10) === phone.replace(/\D/g, '').slice(-10));
+      if (c) { code = c.code; break; }
+    }
+  }
+  const r = await call('POST', '/api/signup', { role, phone, password: 'first-pass', ...extra, ...(code ? { code } : {}) });
+  if (role === 'provider' && r.cookie) providerCookies.push(r.cookie);
+  return r.cookie;
+};
 const today = L.todayStr();
 const tomorrow = L.addDays(today, 1);
 
 before(async () => {
-  proc = spawn(process.execPath, ['server.js'], { cwd: ROOT, env: { ...process.env, PORT, DATA_DIR: dir, GEOCODER: 'off', TELEGRAM_BOT_TOKEN: '' } });
+  spawnSync(process.execPath, ['scripts/make-admin.js', '9000000000', 'adminpass1'], { cwd: ROOT, env: { ...process.env, DATA_DIR: dir } });
+  proc = spawn(process.execPath, ['server.js'], { cwd: ROOT, env: { ...process.env, PORT, DATA_DIR: dir, GEOCODER: 'off', RATING_MIN_DAYS: '0', TELEGRAM_BOT_TOKEN: '' } });
   await new Promise((res, rej) => {
     proc.stdout.on('data', (d) => String(d).includes('running') && res());
     proc.on('exit', (c) => rej(new Error(`server exited ${c}`)));
@@ -58,8 +71,15 @@ test('two providers may add the same person; the customer sees both and is bound
   const b = await call('POST', '/api/customers', { name: 'Asha K', phone: '9876543210', type: 'deluxe' }, B); // same person, other provider: allowed
   assert.equal(b.status, 200);
   custB = b.body;
-  cust = await signup('customer', '9876543210');
-  const my = (await call('GET', '/api/my', null, cust)).body;
+  cust = await signup('customer', '9876543210'); // signs up with Kitchen A's code
+  let my = (await call('GET', '/api/my', null, cust)).body;
+  const pend = my.subscriptions.find((s) => s.businessName === 'Kitchen B');
+  assert.equal(pend.consent, 'pending'); // B was not proven: the person decides, and nothing is counted meanwhile
+  assert.equal((await call('POST', `/api/my/${pend.tid}/${pend.cid}/leaves`, { from: L.addDays(today, 3), to: L.addDays(today, 3) }, cust)).status, 400);
+  assert.equal((await call('GET', `/api/day?date=${today}`, null, B)).body.rows.length, 0);
+  assert.equal((await call('POST', `/api/my/${pend.tid}/${pend.cid}/accept`, {}, cust)).status, 200);
+  assert.equal((await call('GET', `/api/day?date=${tomorrow}`, null, B)).body.rows.length, 1);
+  my = (await call('GET', '/api/my', null, cust)).body;
   assert.equal(my.subscriptions.length, 2);
   assert.deepEqual(my.subscriptions.map((s) => s.businessName).sort(), ['Kitchen A', 'Kitchen B']);
   assert.ok(my.subscriptions.every((s) => s.ended === false && s.stopping === false && s.addedAt > 0));
@@ -115,9 +135,13 @@ test('an end date set by the provider cannot be undone by the customer; ended se
   assert.equal(sub.ended, true);
   assert.equal((await call('POST', `/api/my/${subB.tid}/${subB.cid}/stop`, {}, cust)).status, 400);
   assert.equal((await call('POST', '/api/customers', { name: 'Asha (again)', phone: '9876543210' }, B)).status, 200); // the old, ended record no longer blocks the number
-  // leave-for-all now only reaches the active ones
-  const r = await call('POST', '/api/my/leaves', { from: L.addDays(today, 9), to: L.addDays(today, 9) }, cust);
-  assert.equal(r.body.applied, 2); // Kitchen A + Kitchen B's new record
+  // the new record waits for the customer's yes; leave-for-all only reaches confirmed, active ones
+  const day = { from: L.addDays(today, 9), to: L.addDays(today, 9) };
+  assert.equal((await call('POST', '/api/my/leaves', day, cust)).body.applied, 1); // Kitchen A only
+  const fresh = (await call('GET', '/api/my', null, cust)).body.subscriptions.find((s) => s.businessName === 'Kitchen B' && !s.ended);
+  assert.equal(fresh.consent, 'pending');
+  await call('POST', `/api/my/${fresh.tid}/${fresh.cid}/accept`, {}, cust);
+  assert.equal((await call('POST', '/api/my/leaves', { from: L.addDays(today, 10), to: L.addDays(today, 10) }, cust)).body.applied, 2); // Kitchen A + Kitchen B's new record
 });
 
 test('customers cannot touch another customer\'s subscription', async () => {
@@ -184,4 +208,89 @@ test('a join request can be cancelled by the customer; a provider listed by pinc
   const r = (await call('GET', '/api/my', null, me)).body.requests[0];
   assert.equal((await call('DELETE', `/api/my/requests/${r.tid}/${r.id}`, {}, me)).body.requests.length, 0);
   assert.equal((await call('GET', '/api/enquiries', null, S)).body.enquiries.length, 0);
+});
+
+import { dueReminders } from '../lib/remind.js';
+test('unanswered join requests are reminded after a day, again after three, never more', () => {
+  const now = Date.now();
+  const t = { enquiries: [{ id: 1, status: 'new', at: now - 3600e3 }, { id: 2, status: 'new', at: now - 30 * 3600e3 }, { id: 3, status: 'added', at: now - 99 * 3600e3 }] };
+  assert.deepEqual(dueReminders([t], now)[0].late.map((e) => e.id), [2]); // only the day-old pending one
+  assert.deepEqual(dueReminders([t], now), []); // not twice
+  assert.deepEqual(dueReminders([t], now + 2 * 864e5)[0].late.map((e) => e.id), [1, 2]); // #1 is now a day old, #2 three days
+  assert.deepEqual(dueReminders([t], now + 30 * 864e5)[0].late.map((e) => e.id), [1]); // #1's second (last) reminder
+  assert.deepEqual(dueReminders([t], now + 60 * 864e5), []); // two reminders is the limit
+});
+
+test('"Not mine" removes the record from the provider counts; the personal link proves a number for sign-up', async () => {
+  const P = await signup('provider', '9811100501', { businessName: 'Consent Kitchen' });
+  const Q = await signup('provider', '9811100502', { businessName: 'Spam Kitchen' });
+  const mine = (await call('POST', '/api/customers', { name: 'Ravi', phone: '9123400501' }, P)).body;
+  assert.equal(mine.consent, 'ok'); // nobody to ask yet: the number has no login
+  // sign up with the personal link (token) instead of a code
+  const me = (await call('POST', '/api/signup', { role: 'customer', phone: '9123400501', password: 'first-pass', token: mine.token })).cookie;
+  assert.ok(me);
+  const spam = (await call('POST', '/api/customers', { name: 'Ravi', phone: '9123400501' }, Q)).body;
+  assert.equal(spam.consent, 'pending');
+  assert.equal((await call('GET', `/api/day?date=${tomorrow}`, null, Q)).body.rows.length, 0); // not counted
+  const sub = (await call('GET', '/api/my', null, me)).body.subscriptions.find((s) => s.businessName === 'Spam Kitchen');
+  assert.equal((await call('POST', `/api/my/${sub.tid}/${sub.cid}/decline`, {}, me)).status, 200);
+  assert.equal((await call('GET', '/api/my', null, me)).body.subscriptions.some((s) => s.businessName === 'Spam Kitchen'), false); // gone from the customer's list
+  assert.equal((await call('GET', '/api/customers', null, Q)).body.customers[0].consent, 'declined');
+  assert.equal((await call('GET', `/api/day?date=${tomorrow}`, null, Q)).body.rows.length, 0);
+  // wrong codes are rate limited per number
+  let last;
+  for (let i = 0; i < 12; i++) last = await call('POST', '/api/signup', { role: 'customer', phone: '9123400999', password: 'first-pass', code: String(100000 + i) });
+  assert.equal(last.status, 429);
+});
+
+test('a holiday closure removes those days for everyone and can be taken back', async () => {
+  const P = await signup('provider', '9811100503', { businessName: 'Holiday Kitchen' });
+  await call('POST', '/api/customers', { name: 'Hema', phone: '9123400503' }, P);
+  const from = L.addDays(today, 2);
+  const to = L.addDays(today, 4);
+  const set = await call('POST', '/api/pauses', { from, to, note: 'Family wedding' }, P);
+  assert.equal(set.status, 200);
+  assert.equal(set.body.pauses.length, 1);
+  assert.equal((await call('GET', `/api/day?date=${L.addDays(today, 3)}`, null, P)).body.closed, true);
+  assert.equal((await call('GET', `/api/day?date=${L.addDays(today, 5)}`, null, P)).body.closed, false);
+  assert.equal((await call('POST', '/api/pauses', { from: L.addDays(today, -1), to }, P)).status, 400); // not in the past
+  assert.equal((await call('POST', '/api/pauses', { from: to, to: from }, P)).status, 400);
+  const cust = (await call('GET', '/api/customers', null, P)).body.customers[0];
+  const view = (await call('GET', `/api/c/${cust.token}`, null)).body;
+  assert.deepEqual(view.closures, [{ from, to, note: 'Family wedding' }]);
+  assert.equal((await call('DELETE', `/api/pauses/${set.body.pauses[0].id}`, {}, P)).body.pauses.length, 0);
+  assert.equal((await call('GET', `/api/day?date=${L.addDays(today, 3)}`, null, P)).body.closed, false);
+});
+
+test('ratings: only after some days, one per customer, public summary, provider reply, admin can hide', async () => {
+  const P = await signup('provider', '9811100504', { businessName: 'Rated Kitchen' });
+  const lid = (await call('PUT', '/api/listing', { enabled: true, area: 'Baner', pincode: '411045', radiusKm: 8, lat: 18.56, lng: 73.78 }, P)).body.id;
+  const people = [['Asha Rao', '9123400601'], ['Bina Das', '9123400602'], ['Chitra Jha', '9123400603']];
+  const stars = [5, 4, 3];
+  for (const [i, [name, phone]] of people.entries()) {
+    await call('POST', '/api/customers', { name, phone }, P);
+    const me = await signup('customer', phone);
+    const sub = (await call('GET', '/api/my', null, me)).body.subscriptions[0];
+    assert.equal(sub.canRate, true); // RATING_MIN_DAYS=0 in these tests
+    assert.equal((await call('PUT', `/api/my/${sub.tid}/${sub.cid}/rating`, { stars: 9 }, me)).status, 400);
+    const r = await call('PUT', `/api/my/${sub.tid}/${sub.cid}/rating`, { stars: stars[i], comment: i === 0 ? 'Lovely food <b>' : '' }, me);
+    assert.equal(r.body.myRating.stars, stars[i]);
+    await call('PUT', `/api/my/${sub.tid}/${sub.cid}/rating`, { stars: stars[i], comment: i === 0 ? 'Lovely food <b>' : '' }, me); // updating does not add a second one
+  }
+  const found = (await call('GET', '/api/market/search?lat=18.56&lng=73.78')).body.results.find((r) => r.id === lid);
+  assert.deepEqual(found.rating, { count: 3, avg: 4 });
+  assert.equal(found.reviews[0].who, 'Asha');
+  assert.equal(found.reviews[0].comment, 'Lovely food <b>'); // stored as text; the pages escape it
+  const rev = (await call('GET', '/api/reviews', null, P)).body.items.find((x) => x.comment);
+  assert.equal((await call('POST', `/api/reviews/${rev.id}/reply`, { text: 'Thank you!' }, P)).body.reply, 'Thank you!');
+  assert.equal((await call('POST', `/api/reviews/${rev.id}/report`, {}, P)).body.flagged, true);
+  // providers cannot rate; an admin hides the reported review and it leaves the public summary
+  assert.equal((await call('PUT', `/api/my/${rev.id}/x/rating`, { stars: 5 }, P)).status, 403);
+  const admin = (await call('POST', '/api/login', { role: 'admin', phone: '9000000000', password: 'adminpass1' })).cookie;
+  const flagged = (await call('GET', '/api/admin/reviews', null, admin)).body.items[0];
+  assert.equal(flagged.flagged, true);
+  await call('POST', `/api/admin/reviews/${flagged.tid}/${flagged.id}`, { hidden: true }, admin);
+  const after = (await call('GET', '/api/market/search?lat=18.56&lng=73.78')).body.results.find((r) => r.id === lid);
+  assert.deepEqual(after.rating, { count: 2, avg: 3.5 });
+  assert.equal(after.reviews.length, 0);
 });

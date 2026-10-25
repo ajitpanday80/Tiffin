@@ -245,6 +245,8 @@ async function loadCustomers() {
 }
 
 function leaveStatus(c) {
+  if (c.consent === 'pending') return h('span', { class: 'badge off' }, '⏳ Waiting for the customer to confirm');
+  if (c.consent === 'declined') return h('span', { class: 'badge off' }, '🚫 Customer says this is not them');
   if (c.endDate && c.endDate < S.today) return h('span', { class: 'badge off' }, c.endedBy === 'customer' ? 'Stopped by customer' : 'Stopped');
   if (c.endDate) return h('span', { class: 'badge off' }, `${c.endedBy === 'customer' ? 'Customer stops' : 'Ends'} after ${fmtS(c.endDate)}`);
   const now = c.leaves.find((l) => l.from <= S.today && S.today <= l.to);
@@ -294,8 +296,8 @@ function openCustomer(existing) {
   const phone = h('input', { type: 'tel', value: c.phone, placeholder: 'Mobile number', inputMode: 'tel', autocomplete: 'off' });
   const address = h('textarea', { rows: 2, placeholder: 'Flat / building / area', maxLength: 200 }, c.address);
   const note = h('input', { type: 'text', value: c.note, placeholder: 'e.g. less spicy, no onion (optional)', maxLength: 200 });
-  const start = h('input', { type: 'date', value: c.startDate });
-  const end = h('input', { type: 'date', value: c.endDate });
+  const start = dateInput({ value: c.startDate });
+  const end = dateInput({ value: c.endDate, clearable: true, placeholder: 'Not stopping' });
   let qty = c.qty;
   const qtyEl = h('b', {}, qty);
   const step = (n) => () => { qty = Math.min(20, Math.max(1, qty + n)); qtyEl.textContent = qty; };
@@ -335,7 +337,13 @@ function openCustomer(existing) {
       h('div', { class: 'card stack' },
         h('h2', {}, 'Customer’s own leave link'),
         h('p', { class: 'help' }, 'Send this once. The customer can mark their own leave days, and you get a Telegram alert.'),
-        existing.phone && h('p', { class: 'help' }, existing.hasAccount ? '✓ Has a login (phone + password).' : `They can also create a login at ${location.origin}/signup using ${existing.phone}.`),
+        existing.consent === 'pending' && h('p', { class: 'note-area' }, 'This customer already has a MyTiffin login, so they were asked to confirm you. Until they accept, they are not counted.'),
+        existing.consent === 'declined' && h('p', { class: 'note-area' }, 'This person says the number is not your customer. They are not counted. Check the number, or delete this record.'),
+        existing.phone && (existing.hasAccount
+          ? h('p', { class: 'help' }, '✓ Has a login (phone + password).')
+          : h('div', { class: 'stack' },
+              h('p', { class: 'help' }, 'To log in with their phone number they need this sign-up code (it proves the number is theirs). Using the link above needs no code.'),
+              h('div', { class: 'codebox' }, h('b', {}, existing.code), h('button', { class: 'btn sm', type: 'button', onclick: () => copyText(`Create your MyTiffin login at ${location.origin}/signup?role=customer . Phone: ${existing.phone}. Code: ${existing.code}`, 'Copied') }, 'Copy invite')))),
         shareRow({ text: msg, url: link, copy: link })),
       existing.hasAccount && resetCard(existing),
       h('button', { class: 'btn danger', onclick: (e) => ask(e.currentTarget, `Delete ${existing.name} permanently? Their delivery history will be removed too. Tip: use “Last day” under More options to just stop service.`, async () => {
@@ -361,9 +369,9 @@ function resetCard(c) {
 }
 
 function drawLeaves(box, c) {
-  const from = h('input', { type: 'date', value: S.today });
-  const to = h('input', { type: 'date', value: S.today });
-  from.addEventListener('change', () => { if (to.value < from.value) to.value = from.value; });
+  const from = dateInput({ value: S.today });
+  const to = dateInput({ value: S.today, min: S.today });
+  from.addEventListener('change', () => { if (to.value < from.value) to.value = from.value; to.min = from.value; });
   const live = c.leaves.filter((l) => l.to >= S.today).sort((a, b) => a.from.localeCompare(b.from));
   box.replaceChildren(
     h('h2', {}, '🏖 Leave / holiday'),
@@ -435,8 +443,8 @@ function renderSettings() {
     normal: h('input', { type: 'number', value: s.prices.normal, min: 0, inputMode: 'numeric' }),
     deluxe: h('input', { type: 'number', value: s.prices.deluxe, min: 0, inputMode: 'numeric' }),
     currency: h('input', { type: 'text', value: s.currency, maxLength: 4 }),
-    morningTime: h('input', { type: 'time', value: s.morningTime }),
-    eveningTime: h('input', { type: 'time', value: s.eveningTime }),
+    morningTime: timeInput({ value: s.morningTime, clearable: true }),
+    eveningTime: timeInput({ value: s.eveningTime, clearable: true }),
     cutoffHour: pick([[0, 'Not allowed — from tomorrow only']].concat([6, 7, 8, 9, 10, 11, 12].map((n) => [n, `Until ${n}:00 ${n >= 12 ? 'pm' : 'am'}`])), s.cutoffHour),
   };
   const closed = ['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((l, i) => h('label', {}, h('input', { type: 'checkbox', value: i, checked: s.closedDays.includes(i) }), h('span', { title: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][i] }, l)));
@@ -481,9 +489,36 @@ function renderSettings() {
   // The change-password box and the other buttons live OUTSIDE the settings form: its fields are required and
   // empty, which made the browser silently refuse to submit "Save settings".
   return h('div', { class: 'stack' }, form,
+    closuresCard(),
     passwordCard(),
     h('a', { class: 'btn', href: '/help', target: '_blank', rel: 'noopener' }, '📖 Help and guides'),
     h('button', { type: 'button', class: 'btn', onclick: async () => { await act(() => api('POST', '/api/logout')); location.href = '/'; } }, 'Log out'));
+}
+
+// Holiday closures: tell every customer at once, and they see it in their page.
+function closuresCard() {
+  const today = S.today || ymd(new Date());
+  const from = dateInput({ value: today, min: today });
+  const to = dateInput({ value: today, min: today });
+  from.addEventListener('change', () => { if (to.value < from.value) to.value = from.value; to.min = from.value; });
+  const note = h('input', { type: 'text', maxLength: 100, placeholder: 'Reason, e.g. Diwali, family function (optional)' });
+  const list = (S.settings.pauses || []).filter((p) => p.to >= today);
+  return h('div', { class: 'card stack' }, h('h2', {}, '🏖 Closing for a holiday?'),
+    h('p', { class: 'help' }, 'Pick the days you will not cook. No tiffin is counted on them, and every customer with a Telegram login is told. Customers see it in their page too.'),
+    h('div', { class: 'grid2' }, h('div', { class: 'field' }, 'First closed day', from), h('div', { class: 'field' }, 'Last closed day', to)),
+    h('label', { class: 'field' }, 'Note', note),
+    h('button', { class: 'btn primary', type: 'button', onclick: async (e) => {
+      e.currentTarget.disabled = true;
+      const r = await act(() => api('POST', '/api/pauses', { from: from.value, to: to.value, note: note.value }), 'Closed. Customers have been told ✓');
+      if (r) { S.settings = r; refresh(); } else e.currentTarget.disabled = false;
+    } }, 'Close on these days'),
+    list.length > 0 && h('div', { class: 'stack' }, h('h3', {}, 'Upcoming closures'),
+      list.map((p) => h('div', { class: 'row-top', style: { alignItems: 'center' } },
+        h('div', { class: 'row-main' }, h('strong', {}, p.from === p.to ? fmt(p.from) : `${fmt(p.from)} → ${fmt(p.to)}`), p.note && h('div', { class: 'muted' }, p.note)),
+        h('button', { class: 'btn sm', type: 'button', onclick: (e) => ask(e.currentTarget, 'Open on these days after all? Customers will be told.', async () => {
+          const r = await act(() => api('DELETE', `/api/pauses/${p.id}`), 'Closure removed');
+          if (r) { S.settings = r; refresh(); }
+        }, 'Yes, open') }, 'Remove')))));
 }
 
 function passwordCard() {

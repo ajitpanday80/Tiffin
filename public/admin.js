@@ -95,11 +95,21 @@ function settingsView() {
     h('label', { class: 'field' }, 'Support contact (shown on the forgot-password page)', sup), h('button', { class: 'btn primary', type: 'submit' }, 'Save'));
 }
 
+function reviewsView() {
+  if (!data.reviews.length) return h('div', { class: 'card empty' }, h('div', { class: 'big' }, '⭐'), h('p', { class: 'muted' }, 'No reviews yet.'));
+  return [h('p', { class: 'help' }, 'Reported reviews come first. Hide anything abusive, fake or off-topic. Hidden reviews do not count in the public rating.'),
+    data.reviews.map((r) => h('div', { class: 'card stack' },
+      h('div', { class: 'rowline' }, h('b', {}, r.provider), h('span', { class: `st ${r.hidden ? 'rejected' : r.flagged ? 'pending' : 'paid'}` }, r.hidden ? 'hidden' : r.flagged ? 'reported' : 'visible')),
+      h('div', {}, `${'★'.repeat(r.stars)}${'☆'.repeat(5 - r.stars)} ${r.who}`), r.comment && h('div', {}, r.comment), r.reply && h('div', { class: 'muted' }, `Provider replied: ${r.reply}`),
+      h('button', { class: 'btn sm', onclick: () => act(() => api('POST', `/api/admin/reviews/${r.tid}/${r.id}`, { hidden: !r.hidden }), r.hidden ? 'Review shown' : 'Review hidden') }, r.hidden ? 'Show again' : 'Hide review')))];
+}
+
 function draw() {
+  const flagged = data.reviews.filter((r) => r.flagged).length;
   const pend = data.orders.filter((o) => o.status === 'pending').length;
-  const tabs = [['orders', `Orders${pend ? ` (${pend})` : ''}`], ['plans', 'Plans'], ['providers', 'Providers'], ['reset', 'Reset login'], ['settings', 'Payment & support']];
-  const view = { orders: ordersView, plans: plansView, providers: providersView, reset: resetView, settings: settingsView }[tab]();
-  $('#root').replaceChildren(h('div', { class: 'seg' }, tabs.map(([id, l]) => h('button', { class: tab === id ? 'on' : '', onclick: () => { tab = id; draw(); } }, l))), ...[view].flat());
+  const tabs = [['orders', `Orders${pend ? ` (${pend})` : ''}`], ['plans', 'Plans'], ['providers', 'Providers'], ['reviews', `Reviews${flagged ? ` (${flagged})` : ''}`], ['reset', 'Reset login'], ['settings', 'Payment & support']];
+  const view = { orders: ordersView, plans: plansView, providers: providersView, reviews: reviewsView, reset: resetView, settings: settingsView }[tab]();
+  $('#root').replaceChildren(h('div', { class: 'seg wrap' }, tabs.map(([id, l]) => h('button', { class: tab === id ? 'on' : '', onclick: () => { tab = id; draw(); } }, l))), ...[view].flat());
 }
 
 $('#out').addEventListener('click', async () => { await fetch('/api/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); location.href = '/'; });

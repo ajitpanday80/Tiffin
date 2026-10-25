@@ -48,7 +48,7 @@ before(async () => {
   if (!ENABLED) return;
   const mk = spawnSync(process.execPath, ['scripts/make-admin.js', '9000000000', 'adminpass1'], { cwd: ROOT, env: { ...process.env, DATA_DIR: dir } });
   assert.equal(mk.status, 0, String(mk.stderr));
-  proc = spawn(process.execPath, ['server.js'], { cwd: ROOT, env: { ...process.env, PORT, DATA_DIR: dir, GEOCODER: 'off', TELEGRAM_BOT_TOKEN: '1:x', TELEGRAM_API_BASE: 'http://127.0.0.1:9' } });
+  proc = spawn(process.execPath, ['server.js'], { cwd: ROOT, env: { ...process.env, PORT, DATA_DIR: dir, GEOCODER: 'off', RATING_MIN_DAYS: '0', TELEGRAM_BOT_TOKEN: '1:x', TELEGRAM_API_BASE: 'http://127.0.0.1:9' } });
   await new Promise((res, rej) => {
     proc.stdout.on('data', (d) => String(d).includes('running') && res());
     proc.on('exit', (c) => rej(new Error(`server exited ${c}`)));
@@ -68,9 +68,17 @@ before(async () => {
   await api('POST', `/api/customers/${custs[3].id}/leaves`, { from: today, to: L.addDays(today, 1) }, a.cookie);
   tokenA = custs[1].token;
   // the same person is also a customer of provider B, and has a login
-  await api('POST', '/api/customers', { name: 'Sunita Rao', phone: '9822200001', address: 'A-301 Orchid Residency', type: 'deluxe' }, a.cookie);
+  const sunita = (await api('POST', '/api/customers', { name: 'Sunita Rao', phone: '9822200001', address: 'A-301 Orchid Residency', type: 'deluxe' }, a.cookie)).body;
   await api('POST', '/api/customers', { name: 'Sunita', phone: '9822200001', address: 'A-301 Orchid, Baner' }, b.cookie);
-  cookies.C = (await api('POST', '/api/signup', { role: 'customer', phone: '9822200001', password: 'abcdef' })).cookie;
+  cookies.C = (await api('POST', '/api/signup', { role: 'customer', phone: '9822200001', password: 'abcdef', code: sunita.code })).cookie;
+  // Sai Home Tiffins was not proven at sign-up: the customer confirms it, then a third provider adds them (pending)
+  const mine = (await api('GET', '/api/my', null, cookies.C)).body.subscriptions;
+  const sai = mine.find((s) => s.businessName === 'Sai Home Tiffins');
+  await api('POST', `/api/my/${sai.tid}/${sai.cid}/accept`, {}, cookies.C);
+  await api('PUT', `/api/my/${sai.tid}/${sai.cid}/rating`, { stars: 4, comment: 'Always on time, tasty food' }, cookies.C);
+  const d = await api('POST', '/api/signup', { role: 'provider', phone: '9811100003', password: 'abcdef', businessName: 'Pending Kitchen' });
+  await api('POST', '/api/customers', { name: 'Sunita', phone: '9822200001' }, d.cookie);
+  await api('POST', '/api/pauses', { from: L.addDays(today, 3), to: L.addDays(today, 5), note: 'Family wedding' }, a.cookie);
   for (const [ck, nm, lat, lng] of [[a.cookie, 'Annapurna Tiffins and Home Kitchen of Greater Baner', 18.56, 73.78], [b.cookie, 'Sai Home Tiffins', 18.57, 73.79]]) {
     await api('PUT', '/api/listing', { enabled: true, tagline: 'Fresh, hot, home-style meals delivered to your door every day', about: 'Lunch and dinner, six days a week.', tags: ['veg', 'home-style'], meals: ['lunch', 'dinner'], area: 'Baner', city: 'Pune', pincode: '411045', radiusKm: 8, lat, lng }, ck);
   }
@@ -191,9 +199,15 @@ for (const [vp, size, extra] of VIEWPORTS) {
     // no browser popups: native dialogs fail the test, and drop-downs / confirmations / sheets stay in the page
     page.on('dialog', (d) => { throw new Error(`browser popup: ${d.type()} ${d.message()}`); });
     assert.equal(await page.locator('dialog, select').count(), 0, 'no <dialog> or native <select> in the provider app');
-    await page.click('.pick-btn');
+    assert.equal(await page.locator('input[type=date], input[type=time]').count(), 0, 'no native date/time inputs');
+    await page.locator('.dp-btn').first().click();
+    assert.ok(await page.locator('.dp-cal:visible .dp-day:not(:disabled)').count() > 2, 'the calendar opens inside the page');
+    await page.locator('.dp-cal:visible .dp-day:not(:disabled)').nth(1).click();
+    assert.equal(await page.locator('.dp-cal:visible').count(), 0, 'picking a day closes it');
+    const cutoff = page.locator('.field:has-text("Customers can cancel") .pick-btn');
+    await cutoff.click();
     await page.click('.pick-list li:has-text("Until 9:00 am")');
-    assert.match(await page.locator('.pick-btn').innerText(), /Until 9:00 am/);
+    assert.match(await cutoff.innerText(), /Until 9:00 am/);
     await page.click('button:has-text("Save settings")');
     await page.waitForSelector('.toast.show:has-text("Settings saved")');
     assert.equal((await api('GET', '/api/settings', null, cookies.A)).body.cutoffHour, 9);
@@ -232,7 +246,9 @@ for (const [vp, size, extra] of VIEWPORTS) {
     const page = await ctx.newPage();
     await page.goto(`${BASE}/me`);
     await page.waitForSelector('.me-grid');
-    assert.equal(await page.locator('article.card').count(), 2, 'both providers are listed');
+    assert.equal(await page.locator('article.card:not(.pendbox)').count(), 2, 'both confirmed providers are listed');
+    assert.equal(await page.locator('.pendbox').count(), 1, 'the provider that has not been confirmed asks first');
+    assert.equal(await page.locator('dialog, select, input[type=date], input[type=time]').count(), 0, 'no native pickers on the customer page');
     assert.ok(await page.locator('form:has-text("Mark leave for all 2 services")').count(), 'the all-providers leave form is shown');
     await page.close();
     await ctx.close();

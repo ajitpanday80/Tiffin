@@ -24,6 +24,7 @@ function toast(msg, bad) {
 }
 
 const q = new URLSearchParams(location.search);
+const linkToken = new URLSearchParams(location.search).get('t') || '';
 const state = {
   mode: location.pathname.startsWith('/signup') ? 'signup' : 'login',
   role: ['customer', 'admin'].includes(q.get('role')) ? q.get('role') : 'provider',
@@ -37,6 +38,7 @@ function draw() {
   const business = h('input', { type: 'text', placeholder: 'e.g. Annapurna Tiffins', maxLength: 60, autocomplete: 'organization' });
   const phone = h('input', { type: 'tel', placeholder: 'Mobile number', inputMode: 'tel', autocomplete: 'tel', required: true });
   const pass = h('input', { type: 'password', placeholder: isUp ? 'Choose a password (6+ characters)' : 'Your password', autocomplete: isUp ? 'new-password' : 'current-password', required: true, minLength: isUp ? 6 : 1 });
+  const code = h('input', { type: 'text', placeholder: '6-digit code from your provider', inputMode: 'numeric', maxLength: 12, autocomplete: 'one-time-code' });
   const go = h('button', { class: 'btn primary lg block', type: 'submit' }, isUp ? 'Create account' : 'Log in');
 
   const form = h('form', {
@@ -46,7 +48,7 @@ function draw() {
       try {
         const r = await fetch(isUp ? '/api/signup' : '/api/login', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ role, phone: phone.value, password: pass.value, businessName: business.value }),
+          body: JSON.stringify({ role, phone: phone.value, password: pass.value, businessName: business.value, code: code.value, token: linkToken }),
         });
         const data = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(data.error || 'Something went wrong');
@@ -59,8 +61,9 @@ function draw() {
   },
     role === 'provider' && isUp && h('label', { class: 'field' }, 'Tiffin service name', business),
     h('label', { class: 'field' }, 'Phone number', phone),
+    isUp && role === 'customer' && !linkToken && h('label', { class: 'field' }, 'Sign-up code', code),
     h('label', { class: 'field' }, 'Password', pass),
-    isUp && role === 'customer' && h('div', { class: 'note-box' }, 'Use the same phone number your tiffin provider has saved for you. Not working? Ask them to add or correct your number.'),
+    isUp && role === 'customer' && h('div', { class: 'note-box' }, linkToken ? 'You opened your personal link, so no code is needed. Use the phone number your tiffin provider saved for you.' : 'Use the phone number your tiffin provider saved for you, and the 6-digit sign-up code they gave you (it is in their app on your customer page). No code? Ask them, or open the personal link they sent and tap “Create a login”.'),
     go);
 
   $('#box').replaceChildren(

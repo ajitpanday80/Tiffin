@@ -47,15 +47,16 @@ const rangeText = (l) => (l.from === l.to ? fmt(l.from) : `${fmt(l.from)} → ${
 
 // one active tiffin service: status, leave, and the customer's own controls (stop / undo)
 function subCard(sub) {
-  const from = h('input', { type: 'date', value: sub.minDate, min: sub.minDate, required: true });
-  const to = h('input', { type: 'date', value: sub.minDate, min: sub.minDate, required: true });
+  const from = dateInput({ value: sub.minDate, min: sub.minDate });
+  const to = dateInput({ value: sub.minDate, min: sub.minDate });
   from.addEventListener('change', () => { if (to.value < from.value) to.value = from.value; to.min = from.value; });
   const btn = h('button', { class: 'btn primary block', type: 'submit' }, 'Mark my leave');
   const replace = (r) => { Object.assign(sub, r); draw(); };
   const [icon, label, cls] = STATUS[sub.status];
-  const stopDate = h('input', { type: 'date', value: sub.stopMin, min: sub.stopMin, required: true });
+  const stopDate = dateInput({ value: sub.stopMin, min: sub.stopMin });
 
   return h('article', { class: 'card stack' },
+    sub.closures.length > 0 && h('div', { class: 'note-area' }, sub.closures.map((c) => h('div', {}, `🏖 Closed ${c.from === c.to ? fmt(c.from) : `${fmt(c.from)} to ${fmt(c.to)}`}${c.note ? `: ${c.note}` : ''}.`))),
     h('div', { class: 'row-top' },
       h('div', { class: 'avatar', style: { background: '#e8590c' } }, (sub.businessName[0] || 'T').toUpperCase()),
       h('div', { class: 'row-main' }, h('strong', { style: { fontSize: '18px' } }, sub.businessName),
@@ -81,6 +82,7 @@ function subCard(sub) {
           try { replace(await api('DELETE', `/api/my/${sub.tid}/${sub.cid}/leaves/${l.id}`)); toast('Leave cancelled'); } catch (err) { errToast(err); }
         }, 'Yes, cancel') }, 'Cancel')))),
     sub.businessPhone && h('a', { class: 'btn block', href: `tel:${sub.businessPhone}` }, `📞 Call ${sub.businessName}`),
+    ratingBox(sub),
     !sub.stopping && h('a', { class: 'btn block', href: `/find?switch=${sub.tid}.${sub.cid}` }, '🔀 Switch to another provider'),
     !sub.stopping && h('details', { class: 'stopbox' }, h('summary', {}, 'Stop with this provider'),
       h('div', { class: 'stack' },
@@ -100,6 +102,42 @@ function pastSection(past) {
     h('p', { class: 'help' }, 'Want to start again? ', h('a', { href: '/find' }, 'Find a tiffin service'), ' and send a request to join.'));
 }
 
+// star rating for one service (one rating per customer, can be changed)
+function ratingBox(sub) {
+  if (!sub.canRate && !sub.myRating) return h('p', { class: 'help' }, `You can rate ${sub.businessName} after ${fmt(sub.rateFrom)}.`);
+  let stars = sub.myRating?.stars || 0;
+  const comment = h('input', { type: 'text', maxLength: 200, value: sub.myRating?.comment || '', placeholder: 'A few words (optional)' });
+  const row = h('div', { class: 'stars', role: 'radiogroup', 'aria-label': 'Your rating' });
+  const paint = () => row.replaceChildren(...[1, 2, 3, 4, 5].map((n) => h('button', { type: 'button', class: n <= stars ? 'on' : '', role: 'radio', 'aria-checked': String(n === stars), 'aria-label': `${n} star${n > 1 ? 's' : ''}`, onclick: () => { stars = n; paint(); } }, '★')));
+  paint();
+  const save = h('button', { class: 'btn sm', type: 'button', onclick: async (e) => {
+    if (!stars) return toast('Tap the stars first', true);
+    e.currentTarget.disabled = true;
+    try { Object.assign(sub, await api('PUT', `/api/my/${sub.tid}/${sub.cid}/rating`, { stars, comment: comment.value })); toast('Thanks for rating ✓'); draw(); } catch (err) { errToast(err); e.currentTarget.disabled = false; }
+  } }, sub.myRating ? 'Update my rating' : 'Save rating');
+  return h('details', { class: 'ratebox' }, h('summary', {}, sub.myRating ? `⭐ Your rating: ${sub.myRating.stars}/5` : '⭐ Rate this service'),
+    h('div', { class: 'stack' }, row, h('label', { class: 'field' }, 'Comment', comment),
+      sub.myRating?.hidden && h('p', { class: 'help' }, 'Your comment was hidden by the MyTiffin team.'), save));
+}
+
+// a provider added you: nothing counts until you say yes
+function pendingCard(sub) {
+  const act = (path, msg) => async (e) => {
+    e.currentTarget.disabled = true;
+    try {
+      const r = await api('POST', `/api/my/${sub.tid}/${sub.cid}/${path}`);
+      if (path === 'accept') Object.assign(sub, r); else data.subscriptions = data.subscriptions.filter((x) => x !== sub);
+      draw(); toast(msg);
+    } catch (err) { errToast(err); e.currentTarget.disabled = false; }
+  };
+  return h('article', { class: 'card stack pendbox' },
+    h('strong', {}, `${sub.businessName} added you as a tiffin customer`),
+    h('p', { class: 'help' }, `${sub.type === 'deluxe' ? 'Deluxe' : 'Normal'}${sub.qty > 1 ? ` × ${sub.qty}` : ''}. Is that right? Until you accept, you are not counted in their boxes and they cannot see your leave.`),
+    h('div', { class: 'grid2' },
+      h('button', { class: 'btn primary', type: 'button', onclick: act('accept', 'Added ✓') }, 'Accept'),
+      h('button', { class: 'btn danger', type: 'button', onclick: act('decline', 'Removed. The provider has been told.') }, 'Not mine')));
+}
+
 // join / switch requests that are waiting for the other provider to accept
 function requestsCard(reqs) {
   if (!reqs?.length) return null;
@@ -116,8 +154,8 @@ function requestsCard(reqs) {
 function allLeaveCard(active) {
   if (active.length < 2) return null;
   const min = active.map((s) => s.minDate).sort().pop(); // the latest cut-off among them; stricter ones are reported back
-  const from = h('input', { type: 'date', value: min, min, required: true });
-  const to = h('input', { type: 'date', value: min, min, required: true });
+  const from = dateInput({ value: min, min });
+  const to = dateInput({ value: min, min });
   from.addEventListener('change', () => { if (to.value < from.value) to.value = from.value; to.min = from.value; });
   const btn = h('button', { class: 'btn primary block', type: 'submit' }, `Mark leave for all ${active.length} services`);
   return h('form', {
@@ -168,7 +206,8 @@ function passwordCard() {
 
 function draw() {
   const subs = data.subscriptions;
-  const active = subs.filter((s) => !s.ended);
+  const pending = subs.filter((s) => s.consent === 'pending' && !s.ended);
+  const active = subs.filter((s) => !s.ended && s.consent !== 'pending');
   const past = subs.filter((s) => s.ended);
   $('#root').replaceChildren(
     h('header', { class: 'top' }, h('img', { class: 'logo', src: '/icon.svg', alt: '' }), h('h1', {}, 'My tiffin'),
@@ -177,6 +216,7 @@ function draw() {
       h('p', { class: 'me-hi' }, 'Hi ', h('b', {}, data.name), '! 👋'),
       h('div', { class: 'me-grid' },
         h('div', { class: 'stack' },
+          pending.map(pendingCard),
           requestsCard(data.requests),
           allLeaveCard(active),
           active.length > 0 && h('a', { class: 'btn block', href: '/find' }, '➕ Add another tiffin service'),

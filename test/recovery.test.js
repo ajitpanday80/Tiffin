@@ -37,8 +37,24 @@ const call = async (method, url, body, cookie, headers = {}) => {
   });
   return { status: r.status, body: await r.json(), cookie: r.headers.get('set-cookie')?.split(';')[0] };
 };
-const signup = async (role, phone, extra = {}) => (await call('POST', '/api/signup', { role, phone, password: 'first-pass', ...extra })).cookie;
-const login = (role, phone, password) => call('POST', '/api/login', { role, phone, password }, null, { 'X-Forwarded-For': `10.1.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}` });
+const providerCookies = [];
+const signup = async (role, phone, extra = {}) => {
+  let code = extra.code;
+  if (role === 'customer' && !code) {
+    for (const pc of providerCookies) { // a customer signs up with the code a provider gave them
+      const c = (await call('GET', '/api/customers', null, pc)).body.customers?.find((x) => x.phone && x.phone.replace(/\D/g, '').slice(-10) === phone.replace(/\D/g, '').slice(-10));
+      if (c) { code = c.code; break; }
+    }
+  }
+  const r = await call('POST', '/api/signup', { role, phone, password: 'first-pass', ...extra, ...(code ? { code } : {}) });
+  if (role === 'provider' && r.cookie) providerCookies.push(r.cookie);
+  return r.cookie;
+};
+const login = async (role, phone, password) => {
+  const r = await call('POST', '/api/login', { role, phone, password }, null, { 'X-Forwarded-For': `10.1.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}` });
+  if (role === 'provider' && r.cookie) providerCookies.unshift(r.cookie);
+  return r;
+};
 let updateId = 1;
 const say = (chat, text) => queue.push({ update_id: updateId++, message: { message_id: updateId, chat: { id: chat, type: 'private' }, text } });
 const lastTo = (chat) => [...sent].reverse().find((m) => String(m.chat_id) === String(chat));
@@ -264,9 +280,12 @@ test('Telegram tells a customer when a new provider adds them, and the provider 
 
   const fresh = await signup('provider', '9811100060', { businessName: 'Fresh <b>New</b> Kitchen' });
   await call('POST', '/api/customers', { name: 'Sunita', phone: '9822200001', type: 'deluxe' }, fresh);
-  await waitFor(() => /added you as a tiffin customer/.test(lastTo(903)?.text || ''));
+  await waitFor(() => /wants to add you as a tiffin customer/.test(lastTo(903)?.text || ''));
   assert.match(lastTo(903).text, /Fresh &lt;b&gt;New&lt;\/b&gt; Kitchen/); // provider-chosen text is escaped
-  assert.match(lastTo(903).text, /Stop with this provider/);
+  assert.match(lastTo(903).text, /Accept.*Not mine/s);
+  const fsub = (await call('GET', '/api/my', null, cust)).body.subscriptions.find((s) => s.businessName.startsWith('Fresh'));
+  assert.equal(fsub.consent, 'pending');
+  assert.equal((await call('POST', `/api/my/${fsub.tid}/${fsub.cid}/accept`, {}, cust)).status, 200);
 
   // the Annapurna provider (chat 777) hears when this customer stops and when they undo it
   const subs = (await call('GET', '/api/my', null, cust)).body.subscriptions;
