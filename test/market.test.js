@@ -219,3 +219,27 @@ test('without a Telegram token the pages show the bot display name, never a raw 
   const post = await (await fetch(`${BASE}/blog/telegram-alerts-for-your-tiffin-business`)).text();
   assert.match(post, /<strong>mytiffin<\/strong>/);
 });
+
+test('brand assets: favicon set, manifest icons and social image tags are all present and served', async () => {
+  const bin = async (u) => { const r = await fetch(BASE + u); return { status: r.status, type: r.headers.get('content-type'), buf: Buffer.from(await r.arrayBuffer()) }; };
+  const ico = await bin('/favicon.ico');
+  assert.equal(ico.status, 200);
+  assert.equal(ico.type, 'image/x-icon');
+  assert.deepEqual([...ico.buf.subarray(0, 4)], [0, 0, 1, 0]); // ICO header
+  assert.ok(ico.buf.readUInt16LE(4) >= 3); // 16, 32 and 48 px
+  for (const f of ['/favicon.svg', '/icon.svg', '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/brand/logo.svg', '/brand/logo-reversed.svg', '/og-image.png']) {
+    assert.equal((await bin(f)).status, 200, f);
+  }
+  const png = (await bin('/apple-touch-icon.png')).buf;
+  assert.equal(png.readUInt32BE(16), 180); // width
+  const manifest = JSON.parse((await bin('/manifest.webmanifest')).buf.toString());
+  assert.equal(manifest.name, 'MyTiffin');
+  for (const i of manifest.icons) assert.equal((await bin(i.src)).status, 200, i.src);
+  assert.ok(manifest.icons.some((i) => i.purpose === 'maskable'));
+  const home = await (await fetch(`${BASE}/`)).text();
+  assert.match(home, /rel="icon" href="\/favicon\.svg"/);
+  assert.match(home, /rel="apple-touch-icon" href="\/apple-touch-icon\.png"/);
+  assert.match(home, /property="og:image" content="http:\/\/127\.0\.0\.1:\d+\/og-image\.png"/); // {{BASE}} filled in
+  const post = await (await fetch(`${BASE}/blog/how-to-choose-a-tiffin-service`)).text();
+  assert.match(post, /property="og:image" content="http:\/\/127\.0\.0\.1:\d+\/og-image\.png"/);
+});

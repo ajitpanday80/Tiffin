@@ -105,6 +105,20 @@ Any host that runs Node with a persistent disk works (a small VPS, Fly.io volume
   `node scripts/reset-password.js provider 9811100001 newpassword`
 - Failed logins are rate-limited per phone and per IP (this also means someone can temporarily lock a number out).
 
+## Brand assets
+
+Logo, favicon and app icons are generated from one script, so they always match:
+
+```bash
+pip install fonttools Pillow        # one-time (Playwright + Chromium are also needed)
+python3 brand/build.py              # SVGs, favicon.ico, app/Apple/maskable icons, logo PNGs -> public/
+node promo/build-assets.cjs && node brand/og.cjs   # the 1200x630 social-share image (uses a real app screenshot)
+```
+
+- **Mark:** a tiffin carrier (wide handle, frame, lid knob, three tiers) in white on the brand gradient. It deliberately avoids a narrow arched handle, which reads as a padlock.
+- **Wordmark:** "My" in brand orange + "Tiffin" in ink, set in Inter Display ExtraBold and converted to outlines, so it looks the same everywhere with no font installed.
+- **Files:** `public/favicon.svg` + `favicon.ico` (16/32/48), `apple-touch-icon.png`, `icon-192/512.png`, `icon-maskable-512.png`, `og-image.png`; logos in `public/brand/` (`logo.svg` for light backgrounds, `logo-reversed.svg` for dark, PNG exports, `mark-1024.png`).
+
 ## Writing blog posts
 
 Add an object to `content/posts.js` (slug, title, description, audience `providers`|`customers`, emoji, date, body). The body supports `##`/`###` headings, lists, `> quotes`, `**bold**`, `` `code` `` and `[links](/path)`. Restart the server to publish. Keep claims honest: the existing posts use no invented statistics, and example prices are labelled as examples.

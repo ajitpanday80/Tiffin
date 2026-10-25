@@ -80,7 +80,7 @@ function draw() {
   }
 
   $('#box').replaceChildren(
-    h('a', { class: 'brand mobile-brand', href: '/' }, h('img', { src: '/icon.svg', alt: '', width: 36, height: 36 }), 'MyTiffin'),
+    h('a', { class: 'brand mobile-brand', href: '/' }, h('img', { src: '/icon.svg', alt: '', width: 36, height: 36 }), h('span', { class: 'wm' }, h('b', {}, 'My'), 'Tiffin')),
     h('h1', {}, 'Forgot your password?'), tabs, ...body.filter(Boolean),
     h('p', { class: 'auth-foot' }, h('a', { href: `/login${role === 'customer' ? '?role=customer' : ''}` }, '← Back to log in')));
 }

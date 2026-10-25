@@ -250,3 +250,4 @@ h2.more { font-size: 22px; margin: 44px 0 4px; }
 .s.watch { padding-top: 56px; }
 .vids.one { grid-template-columns: minmax(0, 340px); justify-content: start; margin: 18px 0 22px; }
 @media (max-width: 760px) { .vids.one { justify-content: center; } }
+.auth-side .wm b, #hook .wm b { color: #fff; opacity: .78; }

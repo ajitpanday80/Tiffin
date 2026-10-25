@@ -32,7 +32,7 @@ const botVars = () => ({
   '{{BOT_AT}}': tg.botName ? `@${tg.botName}` : BOT_NAME,
   '{{BOT_URL}}': tg.botName ? `https://t.me/${tg.botName}` : '/help#telegram',
 });
-const fillBot = (html) => (html.includes('{{BOT') ? html.replace(/\{\{BOT(?:_AT|_URL)?\}\}/g, (m) => botVars()[m]) : html);
+const fillBot = (html, base = '') => (html.includes('{{') ? html.replace(/\{\{(?:BOT(?:_AT|_URL)?|BASE)\}\}/g, (m) => (m === '{{BASE}}' ? base : botVars()[m])) : html);
 const geo = new Geocoder({
   store,
   country: (process.env.COUNTRY || 'in').toLowerCase(), // ISO country code used to bias address / pincode lookups
@@ -737,6 +737,7 @@ const MIME = {
   '.webmanifest': 'application/manifest+json',
   '.mp4': 'video/mp4',
   '.jpg': 'image/jpeg',
+  '.ico': 'image/x-icon',
 };
 
 const SECURITY = {
@@ -822,7 +823,7 @@ function serveGenerated(req, res, url) {
   const base = publicBase(req);
   const send = (status, type, body) => {
     res.writeHead(status, { 'Content-Type': type, 'Cache-Control': 'no-cache', ...SECURITY });
-    res.end(req.method === 'HEAD' ? undefined : fillBot(body));
+    res.end(req.method === 'HEAD' ? undefined : fillBot(body, base));
   };
   const path_ = url.pathname.replace(/(.)\/$/, '$1');
   if (path_ === '/blog') return send(200, 'text/html; charset=utf-8', renderIndex(url.searchParams.get('for'), base)), true;
@@ -851,7 +852,7 @@ function serveStatic(req, res, url) {
   }
   const type = MIME[path.extname(file)] || 'application/octet-stream';
   if (path.extname(file) === '.html') {
-    const html = Buffer.from(fillBot(fs.readFileSync(file, 'utf8')));
+    const html = Buffer.from(fillBot(fs.readFileSync(file, 'utf8'), publicBase(req)));
     res.writeHead(200, { 'Content-Type': type, 'Content-Length': html.length, 'Cache-Control': 'no-cache', ...SECURITY });
     return res.end(req.method === 'HEAD' ? undefined : html);
   }

@@ -8,4 +8,4 @@ run() { node promo/render.cjs "$1" "$2" >> "promo/out/render-$1-$2.log" 2>&1; }
 ( run customer v; run customer l; run customer-howto l ) &
 ( run provider-howto v; run customer-howto v ) &
 wait
-echo ALLDONE
+echo ALLDONE | tee promo/out/rebuild.done

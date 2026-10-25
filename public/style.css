@@ -221,3 +221,7 @@ code { background: var(--soft); padding: 1px 6px; border-radius: 6px; }
 .grid2 > *, .pills > *, .stack > * { min-width: 0; }
 input[type=date], input[type=time] { min-width: 0; max-width: 100%; -webkit-appearance: none; appearance: none; }
 .help a { color: var(--brand); font-weight: 600; }
+
+/* wordmark: "My" in the brand colour, "Tiffin" in the text colour (the SVG logo files carry the same two tones) */
+.wm { font-weight: 800; letter-spacing: -.02em; }
+.wm b { font-weight: inherit; color: var(--brand); }

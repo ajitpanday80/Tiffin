@@ -23,7 +23,7 @@ function toast(msg, bad) {
   timer = setTimeout(() => (t.className = 'toast'), 4000);
 }
 const token = new URLSearchParams(location.search).get('token') || '';
-const head = h('a', { class: 'brand mobile-brand', href: '/' }, h('img', { src: '/icon.svg', alt: '', width: 36, height: 36 }), 'MyTiffin');
+const head = h('a', { class: 'brand mobile-brand', href: '/' }, h('img', { src: '/icon.svg', alt: '', width: 36, height: 36 }), h('span', { class: 'wm' }, h('b', {}, 'My'), 'Tiffin'));
 
 function show(...kids) { $('#box').replaceChildren(head, ...kids); }
 
